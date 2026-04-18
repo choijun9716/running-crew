@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>출석 - 풀러닝</title>
   <link rel="stylesheet" href="styles.css">
-  <!-- HTML5 QR Code Scanner -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- jsQR Library -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -18,10 +18,13 @@
 
       <div style="flex: 1; display: flex; flex-direction: column; align-items: center; min-height: 350px;">
         
-        <!-- Scanner UI Area (Moved up) -->
+        <!-- Scanner UI Area (Native JSQR) -->
         <div id="scan-container" style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 24px;">
-          <div id="qr-reader" style="width: 100%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.3);"></div>
-          <p id="qr-status" style="margin-top: 16px; color: var(--text-muted); font-size: 14px; text-align: center; height: 20px;">QR코드를 사각형 안에 비춰주세요.</p>
+          <div style="width: 100%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.3); background-color: #000; position: relative;">
+            <video id="qr-video" width="100%" playsinline autoplay style="display: block;"></video>
+            <canvas id="qr-canvas" hidden></canvas>
+          </div>
+          <p id="qr-status" style="margin-top: 16px; color: var(--text-muted); font-size: 14px; text-align: center; height: 20px;">카메라 활성화 대기 중...</p>
         </div>
 
         <!-- Attendance status block placed below scanner -->

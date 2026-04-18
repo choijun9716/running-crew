@@ -277,33 +277,32 @@ updateDisplayNumbers();
 // ==========================================
 // 4. Attendance (QR Camera) Logic
 // ==========================================
-const qrReaderContainer = document.getElementById('qr-reader');
+const video = document.getElementById('qr-video');
+const canvasElement = document.getElementById('qr-canvas');
 const scanContainer = document.getElementById('scan-container');
 const scanSuccessMsg = document.getElementById('scan-success-msg');
 const qrStatus = document.getElementById('qr-status');
 const attendCountDisplay = document.getElementById('attendance-count-display');
 const attendProgressBar = document.getElementById('attendance-progress-bar');
 
-if (qrReaderContainer) {
-  let html5QrcodeScanner = null;
+if (video && canvasElement) {
+  let scanning = false;
+  const canvas = canvasElement.getContext('2d');
 
-  const onScanSuccess = async (decodedText, decodedResult) => {
+  const onScanSuccess = async (decodedText) => {
     // 1. QR 검증 로직 (첫 스캔 시 해당 QR을 마스터 QR로 등록)
     let masterQR = localStorage.getItem('CREW_MASTER_QR');
     if (!masterQR) {
       localStorage.setItem('CREW_MASTER_QR', decodedText);
       masterQR = decodedText;
-      alert("최초 스캔된 QR코드가 런닝크루 공식 출석 QR로 등록되었습니다!");
+      alert("최초 스캔된 QR코드가 풀러닝 공식 출석 QR로 등록되었습니다!");
     } else {
       if (decodedText !== masterQR) {
         alert("풀러닝 지정 QR코드가 아닙니다. (다른 코드를 스캔하셨습니다)");
-        return; // 실패했으므로 스캐너 유지
+        scanning = true; // resume
+        requestAnimationFrame(tick);
+        return; 
       }
-    }
-
-    // 2. 검증 통과 시 카메라 중지
-    if (html5QrcodeScanner) {
-      html5QrcodeScanner.clear();
     }
     
     if (scanContainer) scanContainer.classList.add('hidden');
@@ -327,14 +326,43 @@ if (qrReaderContainer) {
     updateDisplayNumbers();
   };
 
-  const onScanError = (errorMessage) => {
-    // 스캐닝 동작 중 에러는 무시
-  };
+  function tick() {
+    if (!scanning) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      if (qrStatus) qrStatus.innerText = "QR코드를 사각형 안에 비춰주세요.";
+      canvasElement.height = video.videoHeight;
+      canvasElement.width = video.videoWidth;
+      canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+      const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: "dontInvert",
+      });
+      if (code) {
+        // 성공
+        scanning = false; // 중지
+        // 비디오 스트림 끄기
+        if (video.srcObject) {
+          video.srcObject.getTracks().forEach(track => track.stop());
+        }
+        onScanSuccess(code.data);
+        return;
+      }
+    }
+    requestAnimationFrame(tick);
+  }
 
-  // 접속 즉시 카메라 자동 시작
-  html5QrcodeScanner = new Html5QrcodeScanner(
-    "qr-reader", { fps: 10, qrbox: 250 }, false);
-  html5QrcodeScanner.render(onScanSuccess, onScanError);
+  // 즉시 카메라 실행
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    .then(function(stream) {
+      scanning = true;
+      video.srcObject = stream;
+      video.setAttribute("playsinline", true);
+      video.play();
+      requestAnimationFrame(tick);
+    })
+    .catch(function(err) {
+      if (qrStatus) qrStatus.innerText = "카메라 권한을 허용해주세요.";
+    });
 }
 
 // ==========================================
