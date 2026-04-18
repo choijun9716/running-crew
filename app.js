@@ -173,22 +173,48 @@ function updateDisplayNumbers() {
   const name = localStorage.getItem('userName') || '러너';
   const phone = localStorage.getItem('userPhone') || '010';
 
-  // Dashboard
+  // Dashboard & Attendance Progress
   const dashboardName = document.getElementById('dashboard-name');
   const progressValue = document.getElementById('progress-value');
   const progressBar = document.getElementById('progress-bar');
-  const rewardText = document.getElementById('reward-text');
+  
+  // Attendance Tab Progress
+  const attCountDisplay = document.getElementById('attendance-count-display');
+  const attProgressBar = document.getElementById('attendance-progress-bar');
   
   if (dashboardName) {
     dashboardName.innerText = `반가워요, ${name}님! 👋`;
   }
 
+  // Calculate 25-tier
+  const maxAtt = 25;
+  const fillRatio = Math.min((count / maxAtt) * 100, 100);
+  
   if (progressValue && progressBar) {
     progressValue.innerText = count.toString();
-    progressBar.style.width = `${Math.min((count / 5) * 100, 100)}%`;
-    if (count >= 5) {
-      if(rewardText) rewardText.innerHTML = "축하합니다! <strong>러닝 티셔츠🎁</strong> 달성!";
-    }
+    progressBar.style.width = `${fillRatio}%`;
+    
+    // Reward states
+    const setRewardStatus = (id, target, label) => {
+      const el = document.getElementById(id);
+      const node = document.getElementById('node-' + target);
+      if (el) {
+        if (count >= target) {
+           el.querySelector('.reward-status').innerText = "획득 완료!";
+           el.querySelector('.reward-status').style.color = "var(--primary)";
+           if(node) node.style.background = "var(--primary)";
+        }
+      }
+    };
+    
+    setRewardStatus('reward-10', 10);
+    setRewardStatus('reward-20', 20);
+    setRewardStatus('reward-25', 25);
+  }
+  
+  if (attCountDisplay && attProgressBar) {
+    attCountDisplay.innerText = count.toString();
+    attProgressBar.style.width = `${fillRatio}%`;
   }
 
   // Profile Update
@@ -249,47 +275,69 @@ function updateDisplayNumbers() {
 updateDisplayNumbers();
 
 // ==========================================
-// 4. Attendance (Password Checking) Logic
+// 4. Attendance (QR Camera) Logic
 // ==========================================
-const attendPwInput = document.getElementById('attendance-password');
-const scanBtn = document.getElementById('scan-btn'); // Now "출석 확인" btn
-const retryBtn = document.getElementById('retry-btn');
-const frameIdle = document.getElementById('frame-idle');
-const frameScanning = document.getElementById('frame-scanning');
-const frameSuccess = document.getElementById('frame-success');
-const attendError = document.getElementById('attendance-error');
+const startScanBtn = document.getElementById('start-scan-btn');
+const qrReaderContainer = document.getElementById('qr-reader');
+const scanContainer = document.getElementById('scan-container');
+const scanSuccessMsg = document.getElementById('scan-success-msg');
+const qrStatus = document.getElementById('qr-status');
+const attendCountDisplay = document.getElementById('attendance-count-display');
+const attendProgressBar = document.getElementById('attendance-progress-bar');
+const EXPECTED_QR_VALUE = "FULL_RUNNING_2026";
 
-if (attendPwInput && scanBtn) {
-  attendPwInput.addEventListener('input', (e) => {
-    if (e.target.value.length >= 4) {
-      scanBtn.style.opacity = '1';
-      scanBtn.style.pointerEvents = 'auto';
-    } else {
-      scanBtn.style.opacity = '0.5';
-      scanBtn.style.pointerEvents = 'none';
-      if(attendError) attendError.innerText = "";
+if (startScanBtn && qrReaderContainer) {
+  let html5QrcodeScanner = null;
+
+  const onScanSuccess = async (decodedText, decodedResult) => {
+    // 1회 성공하면 스캐너 중지
+    if (html5QrcodeScanner) {
+      html5QrcodeScanner.clear();
     }
-  });
+    scanContainer.classList.add('hidden');
+    startScanBtn.classList.add('hidden');
 
-  scanBtn.addEventListener('click', async () => {
-    if (attendPwInput.value !== ADMIN_PASSWORD) {
-      attendError.innerText = "비밀번호가 일치하지 않습니다.";
+    if (decodedText !== EXPECTED_QR_VALUE) {
+      alert("풀러닝 지정 QR코드가 아닙니다. 다시 시도해 주세요.");
+      scanContainer.classList.remove('hidden');
+      startScanBtn.classList.remove('hidden');
       return;
     }
-    
-    // UI Change
-    scanBtn.classList.add('hidden');
-    frameIdle.classList.add('hidden');
-    frameScanning.classList.remove('hidden');
 
-    // DB Update Delay Simulation
+    // 하루 1회 중복 금지 로직
+    const lastScanDate = localStorage.getItem('lastScanDate');
+    const todayStr = new Date().toDateString();
+    if (lastScanDate === todayStr) {
+      alert("오늘은 이미 출석하셨습니다! 내일 다시 스캔해 주세요.");
+      scanContainer.classList.remove('hidden');
+      startScanBtn.classList.remove('hidden');
+      return;
+    }
+
+    // 통과 시
+    localStorage.setItem('lastScanDate', todayStr);
+    scanSuccessMsg.classList.remove('hidden');
+    
+    // DB 업데이트
     await dbCheckAttendance();
     
-    setTimeout(() => {
-      frameScanning.classList.add('hidden');
-      frameSuccess.classList.remove('hidden');
-      retryBtn.classList.remove('hidden');
-    }, 1000);
+    // 업데이트 된 카운트 다시 렌더링
+    updateDisplayNumbers();
+  };
+
+  const onScanError = (errorMessage) => {
+    // QR을 찾는 중 계속 발생하는 에러이므로 무시해도 됨
+  };
+
+  startScanBtn.addEventListener('click', () => {
+    // 버튼 누르면 스캐너 시작
+    startScanBtn.innerText = "스캐너 로딩 중...";
+    html5QrcodeScanner = new Html5QrcodeScanner(
+      "qr-reader", { fps: 10, qrbox: 250 }, false);
+    html5QrcodeScanner.render(onScanSuccess, onScanError);
+    
+    startScanBtn.classList.add('hidden');
+    if(qrStatus) qrStatus.innerText = "카메라에 QR코드를 비춰주세요!";
   });
 }
 
