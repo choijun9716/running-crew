@@ -277,68 +277,64 @@ updateDisplayNumbers();
 // ==========================================
 // 4. Attendance (QR Camera) Logic
 // ==========================================
-const startScanBtn = document.getElementById('start-scan-btn');
 const qrReaderContainer = document.getElementById('qr-reader');
 const scanContainer = document.getElementById('scan-container');
 const scanSuccessMsg = document.getElementById('scan-success-msg');
 const qrStatus = document.getElementById('qr-status');
 const attendCountDisplay = document.getElementById('attendance-count-display');
 const attendProgressBar = document.getElementById('attendance-progress-bar');
-const EXPECTED_QR_VALUE = "FULL_RUNNING_2026";
 
-if (startScanBtn && qrReaderContainer) {
+if (qrReaderContainer) {
   let html5QrcodeScanner = null;
 
   const onScanSuccess = async (decodedText, decodedResult) => {
-    // 1회 성공하면 스캐너 중지
+    // 1. QR 검증 로직 (첫 스캔 시 해당 QR을 마스터 QR로 등록)
+    let masterQR = localStorage.getItem('CREW_MASTER_QR');
+    if (!masterQR) {
+      localStorage.setItem('CREW_MASTER_QR', decodedText);
+      masterQR = decodedText;
+      alert("최초 스캔된 QR코드가 런닝크루 공식 출석 QR로 등록되었습니다!");
+    } else {
+      if (decodedText !== masterQR) {
+        alert("풀러닝 지정 QR코드가 아닙니다. (다른 코드를 스캔하셨습니다)");
+        return; // 실패했으므로 스캐너 유지
+      }
+    }
+
+    // 2. 검증 통과 시 카메라 중지
     if (html5QrcodeScanner) {
       html5QrcodeScanner.clear();
     }
-    scanContainer.classList.add('hidden');
-    startScanBtn.classList.add('hidden');
+    
+    if (scanContainer) scanContainer.classList.add('hidden');
 
-    if (decodedText !== EXPECTED_QR_VALUE) {
-      alert("풀러닝 지정 QR코드가 아닙니다. 다시 시도해 주세요.");
-      scanContainer.classList.remove('hidden');
-      startScanBtn.classList.remove('hidden');
-      return;
-    }
-
-    // 하루 1회 중복 금지 로직
+    // 3. 하루 1회 중복 금지 로직
     const lastScanDate = localStorage.getItem('lastScanDate');
     const todayStr = new Date().toDateString();
     if (lastScanDate === todayStr) {
       alert("오늘은 이미 출석하셨습니다! 내일 다시 스캔해 주세요.");
-      scanContainer.classList.remove('hidden');
-      startScanBtn.classList.remove('hidden');
       return;
     }
 
-    // 통과 시
+    // 4. 출석 성공 처리
     localStorage.setItem('lastScanDate', todayStr);
-    scanSuccessMsg.classList.remove('hidden');
+    if (scanSuccessMsg) scanSuccessMsg.classList.remove('hidden');
     
-    // DB 업데이트
+    // DB 업데이트 대기
     await dbCheckAttendance();
     
-    // 업데이트 된 카운트 다시 렌더링
+    // 카운트 다시 렌더링
     updateDisplayNumbers();
   };
 
   const onScanError = (errorMessage) => {
-    // QR을 찾는 중 계속 발생하는 에러이므로 무시해도 됨
+    // 스캐닝 동작 중 에러는 무시
   };
 
-  startScanBtn.addEventListener('click', () => {
-    // 버튼 누르면 스캐너 시작
-    startScanBtn.innerText = "스캐너 로딩 중...";
-    html5QrcodeScanner = new Html5QrcodeScanner(
-      "qr-reader", { fps: 10, qrbox: 250 }, false);
-    html5QrcodeScanner.render(onScanSuccess, onScanError);
-    
-    startScanBtn.classList.add('hidden');
-    if(qrStatus) qrStatus.innerText = "카메라에 QR코드를 비춰주세요!";
-  });
+  // 접속 즉시 카메라 자동 시작
+  html5QrcodeScanner = new Html5QrcodeScanner(
+    "qr-reader", { fps: 10, qrbox: 250 }, false);
+  html5QrcodeScanner.render(onScanSuccess, onScanError);
 }
 
 // ==========================================
