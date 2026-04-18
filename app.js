@@ -359,6 +359,7 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 }
 
 const startRunBtn = document.getElementById('start-run-btn');
+const stopRunBtn = document.getElementById('stop-run-btn');
 if (startRunBtn && document.getElementById('map')) {
   let isRunning = false, time = 0, dist = 0, lastPos = null, watchId = null, timer = null;
   const map = L.map('map').setView([37.5665, 126.9780], 15);
@@ -373,15 +374,18 @@ if (startRunBtn && document.getElementById('map')) {
     document.getElementById('map-overlay').style.display = 'none';
   });
 
-  startRunBtn.onclick = async () => {
+  startRunBtn.onclick = () => {
     isRunning = !isRunning;
     if (isRunning) {
-      // Show metrics container when starting
+      // Start or Resume
       const metricsCont = document.getElementById('metrics-container');
       if (metricsCont) metricsCont.classList.remove('hidden');
+      if (stopRunBtn) stopRunBtn.classList.add('hidden');
 
       startRunBtn.innerText = '일시정지';
-      startRunBtn.style.backgroundColor = 'var(--error)';
+      startRunBtn.style.backgroundColor = 'rgba(255,255,255,0.1)';
+      startRunBtn.style.color = '#fff';
+
       watchId = navigator.geolocation.watchPosition(p => {
         const pos = [p.coords.latitude, p.coords.longitude];
         if (marker) marker.setLatLng(pos);
@@ -391,6 +395,7 @@ if (startRunBtn && document.getElementById('map')) {
         document.getElementById('distance-display').innerText = dist.toFixed(2);
         lastPos = pos;
       }, null, { enableHighAccuracy: true });
+
       timer = setInterval(() => {
         time++;
         const m = Math.floor(time/60).toString().padStart(2,'0'), s = (time%60).toString().padStart(2,'0');
@@ -401,13 +406,38 @@ if (startRunBtn && document.getElementById('map')) {
         }
       }, 1000);
     } else {
+      // Pause
       clearInterval(timer);
       navigator.geolocation.clearWatch(watchId);
-      await dbRecordRun(dist, document.getElementById('time-display').innerText, document.getElementById('pace-display').innerText);
-      startRunBtn.innerText = '러닝 시작';
+      startRunBtn.innerText = '재개하기';
       startRunBtn.style.backgroundColor = 'var(--primary)';
+      startRunBtn.style.color = '#000';
+      if (stopRunBtn) stopRunBtn.classList.remove('hidden');
     }
   };
+
+  if (stopRunBtn) {
+    stopRunBtn.onclick = async () => {
+      isRunning = false;
+      clearInterval(timer);
+      navigator.geolocation.clearWatch(watchId);
+      
+      await dbRecordRun(dist, document.getElementById('time-display').innerText, document.getElementById('pace-display').innerText);
+      
+      alert('러닝이 완료되었습니다!');
+      
+      startRunBtn.innerText = '러닝 시작';
+      startRunBtn.style.backgroundColor = 'var(--primary)';
+      startRunBtn.style.color = '#000';
+      stopRunBtn.classList.add('hidden');
+      
+      // Reset values for next run
+      dist = 0; time = 0; lastPos = null;
+      document.getElementById('distance-display').innerText = '0.00';
+      document.getElementById('time-display').innerText = '00:00';
+      document.getElementById('pace-display').innerText = "0'00\"";
+    };
+  }
 }
 
 updateDisplayNumbers();

@@ -45,8 +45,8 @@
         </div>
 
         <div style="display: flex; flex-direction: column; align-items: center;">
-          <!-- Real Map Container -->
-          <div class="glass-panel" id="map-capture-block" style="width: 100%; height: 280px; overflow: hidden; position: relative; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
+          <!-- Real Map Container (Smaller) -->
+          <div class="glass-panel" id="map-capture-block" style="width: 100%; height: 200px; overflow: hidden; position: relative; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
             <div id="map" style="width: 100%; height: 100%;"></div>
             <div id="map-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; pointer-events: none;">
               <span style="color: #fff; font-size: 14px; font-weight: 600;">GPS 호출 중...</span>
@@ -55,12 +55,16 @@
         </div>
       </div>
 
-      <!-- Controls (Not Captured) -->
-      <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 16px; align-items: center;" data-html2canvas-ignore>
+      <!-- Controls (Not Captured) - Moved up -->
+      <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px; width: 100%; align-items: center;" data-html2canvas-ignore>
         <button id="start-run-btn" class="btn-primary" style="width: 100%; height: 60px; border-radius: 30px; font-size: 18px; font-weight: 700;">
           러닝 시작
         </button>
         
+        <button id="stop-run-btn" class="hidden" style="width: 100%; height: 50px; border-radius: 25px; background: var(--error); color: #fff; font-weight: 700; font-size: 16px; border: none; cursor: pointer;">
+          러닝 끝내기
+        </button>
+
         <button id="capture-insta-btn" class="btn-secondary hidden" style="width: 100%; height: 50px; border-radius: 25px; display: flex; justify-content: center; align-items: center; gap: 8px; background: rgba(255,255,255,0.05);">
           <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
           인스타 투명 배경으로 저장
