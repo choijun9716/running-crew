@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>회원가입 - 러닝크루</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <main class="content-area animate-fade-in" style="padding-top: 40px;">
+      <header style="margin-bottom: 40px;">
+        <h1 class="title">크루 가입하기</h1>
+        <p class="subtitle">러닝크루 멤버가 되어 리워드를 받으세요.</p>
+      </header>
+
+      <!-- Signup Form -->
+      <div style="display: flex; flex-direction: column; gap: 24px; flex: 1;">
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <label style="font-size: 14px; color: var(--text-muted); font-weight: 500;">이름</label>
+          <input type="text" id="signup-name" class="input-field" placeholder="홍길동">
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <label style="font-size: 14px; color: var(--text-muted); font-weight: 500;">휴대폰 번호 (숫자만)</label>
+          <input type="tel" id="signup-phone" class="input-field" placeholder="01012345678">
+        </div>
+        
+        <button id="signup-btn" class="btn-primary" style="margin-top: 20px; opacity: 0.5; pointer-events: none;">
+          가입 완료
+        </button>
+        <a href="index.html" style="text-align: center; color: var(--text-muted); font-size: 14px; margin-top: 12px; display: block;">이미 계정이 있으신가요? 로그인</a>
+      </div>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
