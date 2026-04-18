@@ -5,8 +5,8 @@
   --background: #0d0f12;
   --surface: #1a1d24;
   --surface-light: #262b35;
-  --primary: #caff04;
-  --primary-hover: #b4e304;
+  --primary: #FF793E;
+  --primary-hover: #e66a34;
   --text-main: #f5f6f8;
   --text-muted: #8d95a2;
   --error: #ff4a4a;
@@ -81,12 +81,12 @@ button {
 .btn-primary:hover {
   background-color: var(--primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(202, 255, 4, 0.2);
+  box-shadow: 0 8px 24px rgba(255, 121, 62, 0.2);
 }
 
 .btn-primary:active {
   transform: translateY(1px);
-  box-shadow: 0 4px 12px rgba(202, 255, 4, 0.1);
+  box-shadow: 0 4px 12px rgba(255, 121, 62, 0.1);
 }
 
 .btn-primary:disabled {
@@ -195,7 +195,7 @@ button {
 
 .input-field:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(202, 255, 4, 0.1);
+  box-shadow: 0 0 0 4px rgba(255, 121, 62, 0.1);
 }
 
 /* Animations */
@@ -209,9 +209,9 @@ button {
 }
 
 @keyframes pulse-ring {
-  0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(202, 255, 4, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(202, 255, 4, 0); }
-  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(202, 255, 4, 0); }
+  0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 121, 62, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(255, 121, 62, 0); }
+  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 121, 62, 0); }
 }
 
 @keyframes scan-laser {

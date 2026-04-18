@@ -22,7 +22,7 @@
           <p class="subtitle" id="capture-date" style="font-size: 13px; color: var(--text-muted);">오늘의 러닝 기록</p>
         </header>
 
-        <div style="display: flex; flex-direction: column; align-items: center;">
+        <div id="metrics-container" class="hidden" style="display: flex; flex-direction: column; align-items: center;">
           <!-- Main Metric -->
           <div style="margin-bottom: 40px; text-align: center;">
             <div id="distance-display" style="font-size: 64px; font-weight: 800; color: var(--primary); line-height: 1; font-family: monospace; letter-spacing: -0.05em;">
@@ -42,7 +42,9 @@
               <div id="pace-display" style="font-size: 24px; font-weight: 700; font-family: monospace;">0'00"</div>
             </div>
           </div>
+        </div>
 
+        <div style="display: flex; flex-direction: column; align-items: center;">
           <!-- Real Map Container -->
           <div class="glass-panel" id="map-capture-block" style="width: 100%; height: 280px; overflow: hidden; position: relative; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
             <div id="map" style="width: 100%; height: 100%;"></div>

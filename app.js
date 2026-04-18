@@ -363,19 +363,23 @@ if (startRunBtn && document.getElementById('map')) {
   let isRunning = false, time = 0, dist = 0, lastPos = null, watchId = null, timer = null;
   const map = L.map('map').setView([37.5665, 126.9780], 15);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-  const path = L.polyline([], {color: '#caff04', weight: 5}).addTo(map);
+  const path = L.polyline([], {color: '#FF793E', weight: 5}).addTo(map);
   let marker = null;
 
   navigator.geolocation.getCurrentPosition(p => {
     const pos = [p.coords.latitude, p.coords.longitude];
     map.setView(pos, 16);
-    marker = L.circleMarker(pos, { radius: 8, fillColor: "#caff04", color: "#fff", weight: 2, fillOpacity: 1 }).addTo(map);
+    marker = L.circleMarker(pos, { radius: 8, fillColor: "#FF793E", color: "#fff", weight: 2, fillOpacity: 1 }).addTo(map);
     document.getElementById('map-overlay').style.display = 'none';
   });
 
   startRunBtn.onclick = async () => {
     isRunning = !isRunning;
     if (isRunning) {
+      // Show metrics container when starting
+      const metricsCont = document.getElementById('metrics-container');
+      if (metricsCont) metricsCont.classList.remove('hidden');
+
       startRunBtn.innerText = '일시정지';
       startRunBtn.style.backgroundColor = 'var(--error)';
       watchId = navigator.geolocation.watchPosition(p => {
