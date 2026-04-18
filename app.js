@@ -256,6 +256,50 @@ function updateDisplayNumbers() {
     };
     if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
   }
+
+  // Edit Name Logic
+  const editNameBtn = document.getElementById('edit-name-btn');
+  const editNameModal = document.getElementById('edit-name-modal');
+  const cancelEditBtn = document.getElementById('cancel-edit-btn');
+  const saveNameBtn = document.getElementById('save-name-btn');
+  const newNameInput = document.getElementById('new-name-input');
+
+  if (editNameBtn && editNameModal) {
+    editNameBtn.onclick = () => {
+      newNameInput.value = localStorage.getItem('userName') || '';
+      editNameModal.classList.remove('hidden');
+    };
+    
+    cancelEditBtn.onclick = () => editNameModal.classList.add('hidden');
+    
+    saveNameBtn.onclick = async () => {
+      const newName = newNameInput.value.trim();
+      if (!newName) return alert("이름을 입력해주세요.");
+      
+      saveNameBtn.innerText = "저장 중...";
+      saveNameBtn.disabled = true;
+      
+      try {
+        if (SHEET_API_URL) {
+          await fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: { name: newName } })
+          });
+        }
+        
+        localStorage.setItem('userName', newName);
+        alert("이름이 수정되었습니다!");
+        editNameModal.classList.add('hidden');
+        updateDisplayNumbers(); // UI 업데이트
+      } catch (e) {
+        alert("이름 수정 중 오류가 발생했습니다.");
+      } finally {
+        saveNameBtn.innerText = "저장";
+        saveNameBtn.disabled = false;
+      }
+    };
+  }
 }
 
 // Share Logic (Insta Share)
