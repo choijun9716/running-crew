@@ -1,42 +1,50 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>러닝크루 (Running Crew)</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <div class="app-container">
     <main class="content-area" style="padding-bottom: 0;">
       <!-- Hero Section -->
-      <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;" class="animate-fade-in">
-        <div style="width: 100px; height: 100px; border-radius: 50%; background-color: rgba(202, 255, 4, 0.1); display: flex; justify-content: center; align-items: center; margin-bottom: 32px; animation: pulse-ring 2s infinite;">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <div
+        style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px;"
+        class="animate-fade-in">
+        <div
+          style="width: 100px; height: 100px; border-radius: 50%; background-color: rgba(202, 255, 4, 0.1); display: flex; justify-content: center; align-items: center; margin-bottom: 32px; animation: pulse-ring 2s infinite;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
           </svg>
         </div>
-        
+
         <h1 class="title" style="font-size: 44px; margin-bottom: 16px;">TRACK<br>&amp; RUN</h1>
         <p class="subtitle" style="font-size: 18px; line-height: 1.5;">
-          함께 달리고, 기록하며<br>출석 리워드를 획득하세요.
+          풀러닝과 함께 달리고,<br>출석 리워드를 획득하세요.
         </p>
       </div>
 
       <!-- Login Form -->
-      <div class="animate-fade-in" style="width: 100%; padding: 0 8px 40px 8px; display: flex; flex-direction: column; gap: 16px; animation-delay: 0.2s; animation-fill-mode: both;">
+      <div class="animate-fade-in"
+        style="width: 100%; padding: 0 8px 40px 8px; display: flex; flex-direction: column; gap: 16px; animation-delay: 0.2s; animation-fill-mode: both;">
         <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
-          <label style="font-size: 14px; color: var(--text-muted); font-weight: 500;">휴대폰 번호 (숫자만)</label>
+          <label style="font-size: 14px; color: var(--text-muted); font-weight: 500;">휴대폰 번호</label>
           <input type="tel" id="phone-input" class="input-field" placeholder="01012345678">
         </div>
-        
+
         <button id="login-btn" class="btn-primary" style="opacity: 0.5; pointer-events: none;">
           로그인 / 시작하기
         </button>
-        <p id="login-error" style="color: var(--error); font-size: 14px; text-align: center; margin-top: 8px; min-height: 20px;"></p>
+        <p id="login-error"
+          style="color: var(--error); font-size: 14px; text-align: center; margin-top: 8px; min-height: 20px;"></p>
         <a href="signup.html">
           <button class="btn-secondary">
-            크루 회원가입
+            풀러닝 크루 회원가입
           </button>
         </a>
       </div>
@@ -44,4 +52,5 @@
   </div>
   <script src="app.js"></script>
 </body>
+
 </html>

@@ -27,7 +27,7 @@ async function dbSaveUser(phone, name) {
       await fetch(SHEET_API_URL + "?sheet=Users", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: { phone: phone, name: name, joinDate: new Date().toISOString() } })
+        body: JSON.stringify({ data: [{ phone: phone, name: name, attendanceCount: 0, joinDate: new Date().toISOString() }] })
       });
     } catch (e) {
       console.error("DB 저장 실패", e);
@@ -54,7 +54,7 @@ async function dbRecordRun(distance, timeStr, paceStr) {
       await fetch(SHEET_API_URL + "?sheet=Runs", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: { phone: phone, distance: distance.toFixed(2), time: timeStr, pace: paceStr, date: new Date().toISOString() } })
+        body: JSON.stringify({ data: [{ phone: phone, distance: distance.toFixed(2), time: timeStr, pace: paceStr, date: runInfo.date }] })
       });
     } catch (e) {
       console.error("달리기 DB 저장 실패", e);
@@ -204,20 +204,44 @@ function updateDisplayNumbers() {
   
   // Dashboard Recent Run
   const recentRunCard = document.getElementById('recent-run-card');
+  const renderRecentRun = (runInfo) => {
+    if (recentRunCard && runInfo) {
+      recentRunCard.innerHTML = `
+        <div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">${runInfo.date.split(',')[0]}</div>
+          <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">최근 러닝 완료 🏃‍♂️</div>
+          <div style="font-size: 13px; color: var(--text-muted);">${runInfo.distance}km • ${runInfo.time} • ${runInfo.pace}/km</div>
+        </div>
+        <div style="width: 40px; height: 40px; border-radius: 50%; background-color: var(--primary); display: flex; justify-content: center; align-items: center; color: #000;">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </div>
+      `;
+    }
+  };
+
+  // 먼저 로컬 스토리지 데이터로 빠르게 렌더링하고,
   const recentRunStr = localStorage.getItem('recentRun');
+  if (recentRunStr) {
+    renderRecentRun(JSON.parse(recentRunStr));
+  }
   
-  if (recentRunCard && recentRunStr) {
-    const runInfo = JSON.parse(recentRunStr);
-    recentRunCard.innerHTML = `
-      <div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">${runInfo.date}</div>
-        <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">최근 러닝 완료 🏃‍♂️</div>
-        <div style="font-size: 13px; color: var(--text-muted);">${runInfo.distance}km • ${runInfo.time} • ${runInfo.pace}/km</div>
-      </div>
-      <div style="width: 40px; height: 40px; border-radius: 50%; background-color: var(--primary); display: flex; justify-content: center; align-items: center; color: #000;">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-      </div>
-    `;
+  // DB에서 실제 기록을 가져와 동기화 덮어쓰기 (네트워크 통신)
+  if (SHEET_API_URL && recentRunCard) {
+    fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Runs`)
+      .then(res => res.json())
+      .then(runs => {
+        if (runs && runs.length > 0) {
+          const lastRun = runs[runs.length - 1]; // 마지막 기록
+          renderRecentRun({
+            date: lastRun.date,
+            distance: lastRun.distance,
+            time: lastRun.time,
+            pace: lastRun.pace
+          });
+          // 로컬 스토리지도 동기화 갱신
+          localStorage.setItem('recentRun', JSON.stringify(lastRun));
+        }
+      }).catch(e => console.log('Run Fetch Error', e));
   }
 }
 
