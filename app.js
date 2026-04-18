@@ -309,24 +309,36 @@ if (instaBtn) {
     const area = document.getElementById('capture-area');
     if (!area || typeof html2canvas === 'undefined') return;
 
-    instaBtn.innerText = "이미지 생성 중...";
     try {
       const canvas = await html2canvas(area, {
         backgroundColor: null,
         scale: 2,
         useCORS: true
       });
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `full_running_${Date.now()}.png`;
-      link.href = dataUrl;
-      link.click();
-      alert("투명 배경 이미지가 생성되었습니다! 인스타그램 스토리에 올려보세요.");
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) return alert("이미지 생성에 실패했습니다.");
+        
+        try {
+          // Try to copy to clipboard
+          const data = [new ClipboardItem({ 'image/png': blob })];
+          await navigator.clipboard.write(data);
+          alert("러닝 기록이 클립보드에 복사되었습니다! 인스타그램 스토리에 바로 '붙여넣기' 해보세요. ✨");
+        } catch (err) {
+          // Fallback to Download if clipboard fails
+          console.warn("Clipboard failed, falling back to download", err);
+          const dataUrl = canvas.toDataURL('image/png');
+          const link = document.createElement('a');
+          link.download = `full_running_${Date.now()}.png`;
+          link.href = dataUrl;
+          link.click();
+          alert("이미지가 저장되었습니다! 갤러리에서 확인 후 공유해 보세요.");
+        }
+      }, 'image/png');
+
     } catch (e) {
       console.error(e);
-      alert("이미지 생성에 실패했습니다.");
-    } finally {
-      instaBtn.innerHTML = '<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg> 인스타 투명 배경으로 저장';
+      alert("이미지 처리 중 오류가 발생했습니다.");
     }
   });
 }

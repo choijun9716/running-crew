@@ -38,7 +38,6 @@ body {
   min-height: 100vh;
   background-color: var(--background);
   position: relative;
-  box-shadow: 0 0 50px rgba(0,0,0,0.5);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -81,12 +80,10 @@ button {
 .btn-primary:hover {
   background-color: var(--primary-hover);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(255, 121, 62, 0.2);
 }
 
 .btn-primary:active {
   transform: translateY(1px);
-  box-shadow: 0 4px 12px rgba(255, 121, 62, 0.1);
 }
 
 .btn-primary:disabled {
@@ -195,7 +192,6 @@ button {
 
 .input-field:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(255, 121, 62, 0.1);
 }
 
 /* Animations */
@@ -209,9 +205,9 @@ button {
 }
 
 @keyframes pulse-ring {
-  0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 121, 62, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(255, 121, 62, 0); }
-  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(255, 121, 62, 0); }
+  0% { transform: scale(0.8); }
+  70% { transform: scale(1); }
+  100% { transform: scale(0.8); }
 }
 
 @keyframes scan-laser {
