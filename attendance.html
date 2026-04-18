@@ -10,27 +10,29 @@
   <div class="app-container">
     <main class="content-area animate-fade-in" style="padding: 30px 20px;">
       <header style="margin-bottom: 32px;">
-        <h1 class="title">QR 출석</h1>
-        <p class="subtitle">현장에 있는 모임 QR을 스캔하세요.</p>
+        <h1 class="title">출석 체크</h1>
+        <p class="subtitle">모임 현장에서 관리자 비밀번호를 입력해 주세요.</p>
       </header>
 
       <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
         
-        <!-- Idle State -->
-        <div id="frame-idle" class="glass-panel" style="width: 100%; aspect-ratio: 1/1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;">
-          <div style="position: absolute; top: 20px; left: 20px; width: 40px; height: 40px; border-top: 4px solid var(--primary); border-left: 4px solid var(--primary); border-radius: 8px 0 0 0;"></div>
-          <div style="position: absolute; top: 20px; right: 20px; width: 40px; height: 40px; border-top: 4px solid var(--primary); border-right: 4px solid var(--primary); border-radius: 0 8px 0 0;"></div>
-          <div style="position: absolute; bottom: 20px; left: 20px; width: 40px; height: 40px; border-bottom: 4px solid var(--primary); border-left: 4px solid var(--primary); border-radius: 0 0 0 8px;"></div>
-          <div style="position: absolute; bottom: 20px; right: 20px; width: 40px; height: 40px; border-bottom: 4px solid var(--primary); border-right: 4px solid var(--primary); border-radius: 0 0 8px 0;"></div>
-
-          <svg width="64" height="64" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h5M4 8h5M4 12h5M4 16h5M4 20h5M12 4h8M12 8h8M12 12h8M12 16h8M12 20h8"></path><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
-          <p style="margin-top: 16px; color: var(--text-muted);">스캐너를 실행하려면 아래 버튼을 누르세요</p>
+        <!-- Password Input State -->
+        <div id="frame-idle" style="width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;">
+          
+          <div style="width: 100%; max-width: 300px; display: flex; flex-direction: column; gap: 16px;">
+            <label style="font-size: 14px; color: var(--text-muted); font-weight: 500; text-align: center;">관리자 출석 비밀번호</label>
+            <input type="password" id="attendance-password" class="input-field" placeholder="비밀번호 4자리" style="text-align: center; font-size: 24px; letter-spacing: 4px;">
+          </div>
+          <p id="attendance-error" style="color: var(--error); font-size: 14px; margin-top: 16px; min-height: 20px;"></p>
         </div>
 
-        <!-- Scanning State -->
+        <!-- Scanning/Saving State -->
         <div id="frame-scanning" class="glass-panel hidden" style="width: 100%; aspect-ratio: 1/1; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; overflow: hidden;">
-          <div style="position: absolute; top: 0; left: 0; width: 100%; height: 2px; background-color: var(--primary); box-shadow: 0 0 20px 4px rgba(202, 255, 4, 0.8); animation: scan-laser 1.5s infinite linear;"></div>
-          <p style="margin-top: 16px; color: var(--primary); font-weight: 600;">QR 코드를 찾는 중...</p>
+          <div style="width: 50px; height: 50px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+          <style jsx>{`
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          `}</style>
+          <p style="margin-top: 24px; color: var(--primary); font-weight: 600;">서버에 기록 중입니다...</p>
         </div>
 
         <!-- Success State -->
@@ -39,17 +41,17 @@
             <svg width="40" height="40" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
           </div>
           <h2 style="font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 8px;">출석 완료!</h2>
-          <p style="color: var(--text-muted);">오늘도 멋진 러닝을 응원합니다.</p>
+          <p style="color: var(--text-muted); text-align: center;">오늘도 멋진 러닝을 응원합니다.<br>대시보드에서 진행률을 확인하세요.</p>
         </div>
 
       </div>
 
       <div style="margin-top: auto; padding-top: 40px;">
-        <button id="scan-btn" class="btn-primary">
-          QR 스캔하기
+        <button id="scan-btn" class="btn-primary" style="opacity: 0.5; pointer-events: none;">
+          출석 확인
         </button>
-        <button id="retry-btn" class="btn-secondary hidden">
-          다시 시도하기
+        <button id="retry-btn" class="btn-secondary hidden" onclick="window.location.href='dashboard.html'">
+          대시보드로 가기
         </button>
       </div>
 

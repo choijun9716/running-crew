@@ -1,11 +1,79 @@
 // app.js
 
+// ==========================================
+// 1. 설정 (Settings)
+// ==========================================
+const ADMIN_PASSWORD = "1234"; // 관리자 출석 비밀번호
+// 구글 스프레드시트 API (SheetDB 등) 연결 주소
+const SHEET_API_URL = "https://sheetdb.io/api/v1/vhuuqnesv1okv"; 
+
 // Navigation helper
 function navigateTo(url) {
   window.location.href = url;
 }
 
-// 1. Signup & Login Logic
+// ==========================================
+// DB Controller (가짜 DB 혹은 실제 DB 통신)
+// ==========================================
+async function dbSaveUser(phone, name) {
+  localStorage.setItem('userPhone', phone);
+  localStorage.setItem('userName', name);
+  localStorage.setItem('isLoggedIn', 'true');
+  
+  if (SHEET_API_URL) {
+    try {
+      await fetch(SHEET_API_URL + "?sheet=Users", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { phone: phone, name: name, joinDate: new Date().toISOString() } })
+      });
+    } catch (e) {
+      console.error("DB 저장 실패", e);
+    }
+  }
+}
+
+async function dbRecordRun(distance, timeStr, paceStr) {
+  let prevDist = parseFloat(localStorage.getItem('totalDistance') || '0');
+  localStorage.setItem('totalDistance', (prevDist + distance).toFixed(2));
+
+  if (SHEET_API_URL) {
+    const phone = localStorage.getItem('userPhone') || 'unknown';
+    try {
+      await fetch(SHEET_API_URL + "?sheet=Runs", {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { phone: phone, distance: distance.toFixed(2), time: timeStr, pace: paceStr, date: new Date().toISOString() } })
+      });
+    } catch (e) {
+      console.error("달리기 DB 저장 실패", e);
+    }
+  }
+}
+
+async function dbCheckAttendance() {
+  let count = parseInt(localStorage.getItem('attendanceCount') || '0');
+  count += 1;
+  localStorage.setItem('attendanceCount', count.toString());
+
+  if (SHEET_API_URL) {
+    const phone = localStorage.getItem('userPhone') || 'unknown';
+    // SheetDB Update 로직 (폰 번호 기준으로 출석횟수 덮어쓰기)
+    try {
+      await fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: { attendanceCount: count } })
+      });
+    } catch (e) {
+      console.error("출석 DB 업데이트 실패", e);
+    }
+  }
+}
+
+// ==========================================
+// 2. Signup & Login Logic
+// ==========================================
 const phoneInput = document.getElementById('phone-input');
 const loginBtn = document.getElementById('login-btn');
 const signupPhone = document.getElementById('signup-phone');
@@ -14,8 +82,7 @@ const signupBtn = document.getElementById('signup-btn');
 
 if (phoneInput && loginBtn) {
   phoneInput.addEventListener('input', (e) => {
-    const val = e.target.value;
-    if (val.length >= 10) {
+    if (e.target.value.length >= 10) {
       loginBtn.style.opacity = '1';
       loginBtn.style.pointerEvents = 'auto';
     } else {
@@ -27,6 +94,8 @@ if (phoneInput && loginBtn) {
   loginBtn.addEventListener('click', (e) => {
     e.preventDefault();
     if (phoneInput.value.length >= 10) {
+      // 로그인 시 번호 확인용 임시 로직
+      localStorage.setItem('userPhone', phoneInput.value);
       localStorage.setItem('isLoggedIn', 'true');
       navigateTo('dashboard.html');
     }
@@ -46,83 +115,118 @@ if (signupBtn && signupPhone && signupName) {
   signupPhone.addEventListener('input', checkSignupForm);
   signupName.addEventListener('input', checkSignupForm);
 
-  signupBtn.addEventListener('click', (e) => {
+  signupBtn.addEventListener('click', async (e) => {
     e.preventDefault();
-    localStorage.setItem('userName', signupName.value);
-    localStorage.setItem('isLoggedIn', 'true');
-    alert('회원가입이 완료되었습니다!');
+    signupBtn.innerText = "가입 처리 중...";
+    await dbSaveUser(signupPhone.value, signupName.value);
+    alert('크루 회원가입이 완료되었습니다!');
     navigateTo('dashboard.html');
   });
 }
 
-// 2. Attendance Logic
-const scanBtn = document.getElementById('scan-btn');
+// ==========================================
+// 3. Dashbaord & Profile Logic
+// ==========================================
+function updateDisplayNumbers() {
+  const count = parseInt(localStorage.getItem('attendanceCount') || '0');
+  const dist = parseFloat(localStorage.getItem('totalDistance') || '0').toFixed(1);
+  const name = localStorage.getItem('userName') || '러너';
+  const phone = localStorage.getItem('userPhone') || '010';
+
+  // Dashboard
+  const progressValue = document.getElementById('progress-value');
+  const progressBar = document.getElementById('progress-bar');
+  const rewardText = document.getElementById('reward-text');
+  if (progressValue && progressBar) {
+    progressValue.innerText = count.toString();
+    progressBar.style.width = `${Math.min((count / 5) * 100, 100)}%`;
+    if (count >= 5) {
+      if(rewardText) rewardText.innerHTML = "축하합니다! <strong>러닝 티셔츠🎁</strong> 달성!";
+    }
+  }
+
+  // Profile Update
+  const profileName = document.getElementById('profile-name');
+  const profilePhone = document.getElementById('profile-phone');
+  const profileDist = document.getElementById('profile-dist');
+  const profileCount = document.getElementById('profile-count');
+  
+  if (profileName) profileName.innerText = name;
+  if (profilePhone) profilePhone.innerText = phone;
+  if (profileDist) profileDist.innerText = dist;
+  if (profileCount) profileCount.innerText = count.toString();
+}
+
+// Call on every page load
+updateDisplayNumbers();
+
+// ==========================================
+// 4. Attendance (Password Checking) Logic
+// ==========================================
+const attendPwInput = document.getElementById('attendance-password');
+const scanBtn = document.getElementById('scan-btn'); // Now "출석 확인" btn
 const retryBtn = document.getElementById('retry-btn');
 const frameIdle = document.getElementById('frame-idle');
 const frameScanning = document.getElementById('frame-scanning');
 const frameSuccess = document.getElementById('frame-success');
+const attendError = document.getElementById('attendance-error');
 
-if (scanBtn && frameIdle) {
-  scanBtn.addEventListener('click', () => {
+if (attendPwInput && scanBtn) {
+  attendPwInput.addEventListener('input', (e) => {
+    if (e.target.value.length >= 4) {
+      scanBtn.style.opacity = '1';
+      scanBtn.style.pointerEvents = 'auto';
+    } else {
+      scanBtn.style.opacity = '0.5';
+      scanBtn.style.pointerEvents = 'none';
+      if(attendError) attendError.innerText = "";
+    }
+  });
+
+  scanBtn.addEventListener('click', async () => {
+    if (attendPwInput.value !== ADMIN_PASSWORD) {
+      attendError.innerText = "비밀번호가 일치하지 않습니다.";
+      return;
+    }
+    
+    // UI Change
     scanBtn.classList.add('hidden');
     frameIdle.classList.add('hidden');
     frameScanning.classList.remove('hidden');
 
+    // DB Update Delay Simulation
+    await dbCheckAttendance();
+    
     setTimeout(() => {
       frameScanning.classList.add('hidden');
       frameSuccess.classList.remove('hidden');
       retryBtn.classList.remove('hidden');
-      
-      let count = parseInt(localStorage.getItem('attendanceCount') || '4');
-      if (count < 5) {
-        localStorage.setItem('attendanceCount', (count + 1).toString());
-      }
-    }, 1500);
-  });
-
-  retryBtn.addEventListener('click', () => {
-    frameSuccess.classList.add('hidden');
-    retryBtn.classList.add('hidden');
-    frameIdle.classList.remove('hidden');
-    scanBtn.classList.remove('hidden');
+    }, 1000);
   });
 }
 
-// 3. Dashbaord Logic
-const progressValue = document.getElementById('progress-value');
-const progressBar = document.getElementById('progress-bar');
-if (progressValue && progressBar) {
-  let count = parseInt(localStorage.getItem('attendanceCount') || '4');
-  progressValue.innerText = count.toString();
-  progressBar.style.width = `${(count / 5) * 100}%`;
-  
-  if (count >= 5) {
-    document.getElementById('reward-text').innerHTML = "축하합니다! <strong>러닝 티셔츠🎁</strong> 달성!";
-  }
+// ==========================================
+// 5. Run Tracker Logic (with Leaflet Map & GPS)
+// ==========================================
+// Haversine formula to calculate distance between two lat/lon points in km
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; 
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2); 
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  return R * c; 
 }
 
-// 4. Run Tracker Logic (with Leaflet Map & GPS)
 const startRunBtn = document.getElementById('start-run-btn');
 const distanceDisplay = document.getElementById('distance-display');
 const timeDisplay = document.getElementById('time-display');
 const paceDisplay = document.getElementById('pace-display');
 const mapContainer = document.getElementById('map');
 const mapOverlay = document.getElementById('map-overlay');
-
-// Haversine formula to calculate distance between two lat/lon points in km
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radius of the earth in km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2)
-    ; 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-  const d = R * c; 
-  return d;
-}
 
 if (startRunBtn && mapContainer) {
   let isRunning = false;
@@ -133,35 +237,22 @@ if (startRunBtn && mapContainer) {
   let totalDistanceKm = 0;
   let lastPosition = null;
 
-  // Initialize Map
-  const map = L.map('map').setView([37.5665, 126.9780], 15); // Default to Seoul
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
-  }).addTo(map);
+  const map = L.map('map').setView([37.5665, 126.9780], 15);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
 
   let pathLine = L.polyline([], {color: '#caff04', weight: 4}).addTo(map);
   let currentMarker = null;
 
-  // Try to get initial position
   if ("geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition((position) => {
       if(mapOverlay) mapOverlay.style.display = 'none';
       const lat = position.coords.latitude;
       const lng = position.coords.longitude;
       map.setView([lat, lng], 16);
-      currentMarker = L.circleMarker([lat, lng], {
-        radius: 8,
-        fillColor: "#caff04",
-        color: "#fff",
-        weight: 2,
-        opacity: 1,
-        fillOpacity: 1
-      }).addTo(map);
+      currentMarker = L.circleMarker([lat, lng], { radius: 8, fillColor: "#caff04", color: "#fff", weight: 2, opacity: 1, fillOpacity: 1 }).addTo(map);
     }, () => {
       if(mapOverlay) mapOverlay.innerHTML = '<span style="color:red; font-size: 14px;">GPS 권한이 필요합니다.</span>';
     });
-  } else {
-    if(mapOverlay) mapOverlay.innerHTML = '<span style="color:red; font-size: 14px;">GPS를 지원하지 않는 브라우저입니다.</span>';
   }
 
   function startGPSWatch() {
@@ -171,66 +262,53 @@ if (startRunBtn && mapContainer) {
         const lng = position.coords.longitude;
         const currentPos = [lat, lng];
 
-        // Update Map Marker & Path
-        if (currentMarker) {
-          currentMarker.setLatLng(currentPos);
-        }
+        if (currentMarker) currentMarker.setLatLng(currentPos);
         pathLine.addLatLng(currentPos);
         map.panTo(currentPos);
 
-        // Calculate distance if it's not the first point
         if (lastPosition) {
           const dist = calculateDistance(lastPosition[0], lastPosition[1], lat, lng);
           totalDistanceKm += dist;
           distanceDisplay.innerText = totalDistanceKm.toFixed(2);
         }
         lastPosition = currentPos;
-
-      }, (error) => {
-        console.error("GPS Error:", error);
-      }, {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 5000
-      });
+      }, (e) => console.log(e), { enableHighAccuracy: true });
     }
   }
 
-  function updateTimer() {
-    timeSeconds++;
-    const m = Math.floor(timeSeconds / 60).toString().padStart(2, '0');
-    const s = (timeSeconds % 60).toString().padStart(2, '0');
-    timeDisplay.innerText = `${m}:${s}`;
-    
-    // Update Pace
-    if (totalDistanceKm > 0.01) { // Only show pace after 10 meters to avoid wild numbers
-      const minutes = Math.floor((timeSeconds / 60) / totalDistanceKm);
-      const seconds = Math.floor((((timeSeconds / 60) / totalDistanceKm) - minutes) * 60);
-      paceDisplay.innerText = `${minutes}'${seconds.toString().padStart(2, '0')}"`;
-    }
-  }
-
-  startRunBtn.addEventListener('click', () => {
+  startRunBtn.addEventListener('click', async () => {
     isRunning = !isRunning;
     if (isRunning) {
       startRunBtn.innerText = '일시정지';
       startRunBtn.style.backgroundColor = 'var(--error)';
       startRunBtn.style.color = '#fff';
-      startRunBtn.style.boxShadow = '0 0 30px rgba(255, 74, 74, 0.4)';
       distanceDisplay.style.color = 'var(--primary)';
       
       startGPSWatch();
-      timerInterval = setInterval(updateTimer, 1000);
+      timerInterval = setInterval(() => {
+        timeSeconds++;
+        const m = Math.floor(timeSeconds / 60).toString().padStart(2, '0');
+        const s = (timeSeconds % 60).toString().padStart(2, '0');
+        timeDisplay.innerText = `${m}:${s}`;
+        
+        if (totalDistanceKm > 0.01) {
+          const minutes = Math.floor((timeSeconds / 60) / totalDistanceKm);
+          const seconds = Math.floor((((timeSeconds / 60) / totalDistanceKm) - minutes) * 60);
+          paceDisplay.innerText = `${minutes}'${seconds.toString().padStart(2, '0')}"`;
+        }
+      }, 1000);
     } else {
-      startRunBtn.innerText = '시작';
+      startRunBtn.innerText = '저장 끝내기';
       startRunBtn.style.backgroundColor = 'var(--primary)';
       startRunBtn.style.color = '#000';
-      startRunBtn.style.boxShadow = '0 0 30px rgba(202, 255, 4, 0.4)';
-      
       clearInterval(timerInterval);
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-      }
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      
+      // DB에 달리기 결과 전송
+      await dbRecordRun(totalDistanceKm, timeDisplay.innerText, paceDisplay.innerText);
+      alert('러닝 기록이 서버에 저장되었습니다!');
+      startRunBtn.innerText = '시작';
+      timeSeconds = 0; totalDistanceKm = 0; lastPosition = null; distanceDisplay.innerText="0.00";
     }
   });
 }
