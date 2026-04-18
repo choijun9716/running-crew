@@ -91,13 +91,42 @@ if (phoneInput && loginBtn) {
     }
   });
 
-  loginBtn.addEventListener('click', (e) => {
+  loginBtn.addEventListener('click', async (e) => {
     e.preventDefault();
     if (phoneInput.value.length >= 10) {
-      // 로그인 시 번호 확인용 임시 로직
-      localStorage.setItem('userPhone', phoneInput.value);
-      localStorage.setItem('isLoggedIn', 'true');
-      navigateTo('dashboard.html');
+      const phoneVal = phoneInput.value;
+      const errorEl = document.getElementById('login-error');
+      
+      if (SHEET_API_URL) {
+        // 실제 DB 조회
+        loginBtn.innerText = "정보 확인 중...";
+        try {
+          const res = await fetch(`${SHEET_API_URL}/search?phone=${phoneVal}&sheet=Users`);
+          const data = await res.json();
+          
+          if (data && data.length > 0) {
+            // 회원가입된 유저 발견!
+            const user = data[0];
+            localStorage.setItem('userPhone', user.phone);
+            localStorage.setItem('userName', user.name);
+            localStorage.setItem('attendanceCount', user.attendanceCount || '0');
+            localStorage.setItem('isLoggedIn', 'true');
+            navigateTo('dashboard.html');
+          } else {
+            if(errorEl) errorEl.innerText = "가입되지 않은 번호입니다. 크루 회원가입을 먼저 진행해주세요.";
+            loginBtn.innerText = "로그인 / 시작하기";
+          }
+        } catch (err) {
+          console.error(err);
+          if(errorEl) errorEl.innerText = "서버 통신 에러가 발생했습니다.";
+          loginBtn.innerText = "로그인 / 시작하기";
+        }
+      } else {
+        // API 설정 전 로컬 테스트용
+        localStorage.setItem('userPhone', phoneVal);
+        localStorage.setItem('isLoggedIn', 'true');
+        navigateTo('dashboard.html');
+      }
     }
   });
 }
@@ -134,9 +163,15 @@ function updateDisplayNumbers() {
   const phone = localStorage.getItem('userPhone') || '010';
 
   // Dashboard
+  const dashboardName = document.getElementById('dashboard-name');
   const progressValue = document.getElementById('progress-value');
   const progressBar = document.getElementById('progress-bar');
   const rewardText = document.getElementById('reward-text');
+  
+  if (dashboardName) {
+    dashboardName.innerText = `반가워요, ${name}님! 👋`;
+  }
+
   if (progressValue && progressBar) {
     progressValue.innerText = count.toString();
     progressBar.style.width = `${Math.min((count / 5) * 100, 100)}%`;
