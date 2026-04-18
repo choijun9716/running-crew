@@ -602,7 +602,76 @@ if (startRunBtn && document.getElementById('map')) {
       document.getElementById('distance-display').innerText = '0.00';
       document.getElementById('time-display').innerText = '00:00';
       document.getElementById('pace-display').innerText = "0'00\"";
+      
+      // Reset protection UI
+      const lockBtn = document.getElementById('lock-screen-btn');
+      if (lockBtn) lockBtn.classList.add('hidden');
     };
+  }
+
+  // --- 1. Protection Logic: Navigation Guard ---
+  const navLinks = document.querySelectorAll('.nav-link');
+  navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      if (isRunning) {
+        e.preventDefault();
+        alert("러닝 중에는 탭을 이동할 수 없습니다.\n먼저 러닝을 일시정지하거나 종료해 주세요.");
+      }
+    });
+  });
+
+  // --- 2. Protection Logic: Touch Lock ---
+  const lockBtn = document.getElementById('lock-screen-btn');
+  const lockOverlay = document.getElementById('touch-lock-overlay');
+  const unlockHoldBtn = document.getElementById('unlock-hold-btn');
+  const unlockProgress = document.getElementById('unlock-progress');
+
+  if (lockBtn && lockOverlay && unlockHoldBtn) {
+    // Show lock button only when running starts
+    const originalStartRun = startRunBtn.onclick;
+    startRunBtn.onclick = async (...args) => {
+      await originalStartRun.apply(this, args);
+      if (isRunning) {
+        lockBtn.classList.remove('hidden');
+      } else {
+        // Shown even when paused to prevent accidents, but user might want it hidden
+        // For now, keep it visible if elapsed time > 0
+        const totalSec = Math.floor(elapsedMsBeforePause / 1000);
+        if (totalSec === 0) lockBtn.classList.add('hidden');
+      }
+    };
+
+    lockBtn.onclick = () => {
+      lockOverlay.classList.remove('hidden');
+      // Force status bar or other UI to hide if possible (web restricted)
+    };
+
+    let holdTimer = null;
+    let holdStartTime = 0;
+    const HOLD_DURATION = 1500; // 1.5 seconds for better UX
+
+    const startHold = (e) => {
+      e.preventDefault();
+      holdStartTime = Date.now();
+      unlockProgress.style.height = '100%';
+      unlockProgress.style.transition = `height ${HOLD_DURATION}ms linear`;
+      
+      holdTimer = setTimeout(() => {
+        lockOverlay.classList.add('hidden');
+        resetHold();
+      }, HOLD_DURATION);
+    };
+
+    const resetHold = () => {
+      clearTimeout(holdTimer);
+      unlockProgress.style.transition = 'none';
+      unlockProgress.style.height = '0%';
+    };
+
+    unlockHoldBtn.addEventListener('mousedown', startHold);
+    unlockHoldBtn.addEventListener('touchstart', startHold);
+    window.addEventListener('mouseup', resetHold);
+    window.addEventListener('touchend', resetHold);
   }
 }
 
