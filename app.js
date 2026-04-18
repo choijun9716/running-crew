@@ -35,10 +35,6 @@ async function dbSaveUser(phone, name) {
 }
 
 async function dbRecordRun(distance, timeStr, paceStr) {
-  let prevDist = parseFloat(localStorage.getItem('totalDistance') || '0');
-  const newTotalDist = (prevDist + distance).toFixed(2);
-  localStorage.setItem('totalDistance', newTotalDist);
-  
   const runDate = new Date().toLocaleString();
   const runInfo = {
     distance: distance.toFixed(2),
@@ -62,9 +58,28 @@ async function dbRecordRun(distance, timeStr, paceStr) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: [{ phone: phone, distance: distance.toFixed(2), time: timeStr, pace: paceStr, date: runDate }] })
       });
+      // After saving, sync total distance from server
+      await dbSyncTotalDistance();
     } catch (e) {
       console.error("달리기 DB 저장 실패", e);
     }
+  }
+}
+
+async function dbSyncTotalDistance() {
+  const phone = localStorage.getItem('userPhone');
+  if (!phone || !SHEET_API_URL) return;
+
+  try {
+    const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Runs`);
+    const data = await res.json();
+    if (data && Array.isArray(data)) {
+      const total = data.reduce((acc, curr) => acc + parseFloat(curr.distance || 0), 0);
+      localStorage.setItem('totalDistance', total.toFixed(2));
+      updateDisplayNumbers(true); // Recursively update UI (skip sync call)
+    }
+  } catch (e) {
+    console.error("거리 동기화 실패", e);
   }
 }
 
@@ -121,6 +136,10 @@ if (phoneInput && loginBtn) {
         localStorage.setItem('userName', user.name);
         localStorage.setItem('attendanceCount', user.attendanceCount || '0');
         localStorage.setItem('isLoggedIn', 'true');
+        
+        // Initial distance sync on login
+        await dbSyncTotalDistance();
+        
         navigateTo('dashboard.html');
       } else {
         if(errorEl) errorEl.innerText = "가입되지 않은 번호입니다. 가입을 먼저 진행해주세요.";
@@ -160,7 +179,14 @@ if (signupBtn && signupPhone && signupName) {
 // ==========================================
 // 3. Dashboard, Profile & Share
 // ==========================================
-function updateDisplayNumbers() {
+let isSyncing = false;
+async function updateDisplayNumbers(skipSync = false) {
+  if (!skipSync && !isSyncing) {
+    isSyncing = true;
+    await dbSyncTotalDistance();
+    isSyncing = false;
+  }
+
   const count = parseInt(localStorage.getItem('attendanceCount') || '0');
   const dist = parseFloat(localStorage.getItem('totalDistance') || '0').toFixed(1);
   const name = localStorage.getItem('userName') || '러너';
