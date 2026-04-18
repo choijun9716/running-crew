@@ -265,7 +265,21 @@ function updateDisplayNumbers() {
   const newNameInput = document.getElementById('new-name-input');
 
   if (editNameBtn && editNameModal) {
-    editNameBtn.onclick = () => {
+    editNameBtn.onclick = async () => {
+      // Fetch latest name from SheetDB before editing to ensure sync
+      const phone = localStorage.getItem('userPhone');
+      if (phone && SHEET_API_URL) {
+        try {
+          const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Users`);
+          const data = await res.json();
+          if (data && data.length > 0) {
+            localStorage.setItem('userName', data[0].name);
+          }
+        } catch (e) {
+          console.warn("최신 데이터 동기화 실패", e);
+        }
+      }
+      
       newNameInput.value = localStorage.getItem('userName') || '';
       editNameModal.classList.remove('hidden');
     };
@@ -279,13 +293,17 @@ function updateDisplayNumbers() {
       saveNameBtn.innerText = "저장 중...";
       saveNameBtn.disabled = true;
       
+      const phone = localStorage.getItem('userPhone');
+      
       try {
-        if (SHEET_API_URL) {
-          await fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
+        if (SHEET_API_URL && phone) {
+          const patchRes = await fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: { name: newName } })
           });
+          
+          if (!patchRes.ok) throw new Error("Update failed");
         }
         
         localStorage.setItem('userName', newName);
@@ -293,7 +311,8 @@ function updateDisplayNumbers() {
         editNameModal.classList.add('hidden');
         updateDisplayNumbers(); // UI 업데이트
       } catch (e) {
-        alert("이름 수정 중 오류가 발생했습니다.");
+        console.error(e);
+        alert("이름 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
       } finally {
         saveNameBtn.innerText = "저장";
         saveNameBtn.disabled = false;
