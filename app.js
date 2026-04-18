@@ -499,6 +499,11 @@ if (startRunBtn && document.getElementById('map')) {
   });
 
   startRunBtn.onclick = () => {
+    if (!isRunning && time === 0) {
+      const confirmStart = confirm("⚠️ 러닝 시작 전 주의사항\n\n1. 앱 새로고침을 하면 현재 기록이 사라질 수 있습니다.\n2. GPS 기반 측정으로 실제 거리와 약간의 오차가 발생할 수 있습니다.\n\n러닝을 시작하시겠습니까?");
+      if (!confirmStart) return;
+    }
+
     isRunning = !isRunning;
     if (isRunning) {
       // Start or Resume
