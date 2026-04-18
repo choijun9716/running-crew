@@ -74,8 +74,21 @@ async function dbSyncTotalDistance() {
     const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Runs`);
     const data = await res.json();
     if (data && Array.isArray(data)) {
+      // 1. Total Distance Sync
       const total = data.reduce((acc, curr) => acc + parseFloat(curr.distance || 0), 0);
       localStorage.setItem('totalDistance', total.toFixed(2));
+      
+      // 2. Recent Run Sync (Show last record if it exists)
+      if (data.length > 0) {
+        const lastRun = data[data.length - 1]; // Assume last row is newest
+        localStorage.setItem('recentRun', JSON.stringify({
+          distance: lastRun.distance,
+          time: lastRun.time,
+          pace: lastRun.pace,
+          date: lastRun.date
+        }));
+      }
+      
       updateDisplayNumbers(true); // Recursively update UI (skip sync call)
     }
   } catch (e) {
