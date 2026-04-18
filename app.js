@@ -245,6 +245,17 @@ async function updateDisplayNumbers(skipSync = false) {
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
       </div>
     `;
+  } else if (recentRunCard) {
+    recentRunCard.innerHTML = `
+      <div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">최근 러닝</div>
+        <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">러닝을 시작해보아요! 🏃‍♂️</div>
+        <div style="font-size: 13px; color: var(--text-muted);">러닝 탭에서 첫 발걸음을 떼보세요.</div>
+      </div>
+      <div style="width: 40px; height: 40px; border-radius: 50%; background-color: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+    `;
   }
 
   // "Show More" Modal Logic
@@ -274,7 +285,7 @@ async function updateDisplayNumbers(skipSync = false) {
             listCont.appendChild(card);
           });
         } else {
-          listCont.innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">러닝 기록이 없습니다.</div>';
+          listCont.innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">아직 러닝 기록이 없어요.<br>지금 바로 첫 러닝을 시작해볼까요?</div>';
         }
       } catch (e) {
         listCont.innerHTML = '<div style="text-align: center; color: var(--error); margin-top: 40px;">기록을 가져오지 못했습니다.</div>';
