@@ -55,17 +55,19 @@
         </div>
       </div>
 
-      <!-- Controls (Not Captured) - Moved up -->
-      <div style="margin-top: 20px; display: flex; flex-direction: column; gap: 12px; width: 100%; align-items: center;" data-html2canvas-ignore>
-        <button id="start-run-btn" class="btn-primary" style="width: 100%; height: 60px; border-radius: 30px; font-size: 18px; font-weight: 700;">
-          러닝 시작
-        </button>
-        
-        <button id="stop-run-btn" class="hidden" style="width: 100%; height: 50px; border-radius: 25px; background: var(--error); color: #fff; font-weight: 700; font-size: 16px; border: none; cursor: pointer;">
-          러닝 끝내기
-        </button>
+      <!-- Controls (Not Captured) - 2 Column Layout -->
+      <div style="margin-top: 20px; width: 100%;" data-html2canvas-ignore>
+        <div style="display: flex; gap: 12px;">
+          <button id="start-run-btn" class="btn-primary" style="flex: 1; height: 60px; border-radius: 30px; font-size: 18px; font-weight: 700;">
+            러닝 시작
+          </button>
+          
+          <button id="stop-run-btn" class="hidden" style="flex: 1; height: 60px; border-radius: 30px; background: var(--error); color: #fff; font-weight: 700; font-size: 16px; border: none; cursor: pointer;">
+            러닝 끝내기
+          </button>
+        </div>
 
-        <button id="capture-insta-btn" class="btn-secondary hidden" style="width: 100%; height: 50px; border-radius: 25px; display: flex; justify-content: center; align-items: center; gap: 8px; background: rgba(255,255,255,0.05);">
+        <button id="capture-insta-btn" class="btn-secondary hidden" style="width: 100%; height: 50px; border-radius: 25px; display: flex; justify-content: center; align-items: center; gap: 8px; background: rgba(255,255,255,0.05); margin-top: 16px;">
           <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
           인스타 투명 배경으로 저장
         </button>
