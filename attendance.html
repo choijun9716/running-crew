@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,23 +9,28 @@
   <!-- jsQR Library -->
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
+
 <body>
   <div class="app-container">
     <main class="content-area animate-fade-in" style="padding: 20px 20px;">
       <header style="margin-bottom: 24px;">
         <h1 class="title">QR 출석 체크</h1>
-        <p class="subtitle" style="margin-bottom: 8px;">운영진이 제공하는 출석 QR코드를 스캔해주세요.</p>
+        <p class="subtitle" style="margin-bottom: 8px;">출석 QR코드를 스캔해주세요.</p>
       </header>
 
       <div style="flex: 1; display: flex; flex-direction: column; align-items: center; min-height: 350px;">
-        
+
         <!-- Scanner UI Area (Native JSQR) -->
-        <div id="scan-container" style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 24px;">
-          <div style="width: 100%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.3); background-color: #000; position: relative;">
+        <div id="scan-container"
+          style="width: 100%; display: flex; flex-direction: column; align-items: center; margin-bottom: 24px;">
+          <div
+            style="width: 100%; max-width: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.3); background-color: #000; position: relative;">
             <video id="qr-video" width="100%" playsinline autoplay style="display: block;"></video>
             <canvas id="qr-canvas" hidden></canvas>
           </div>
-          <p id="qr-status" style="margin-top: 16px; color: var(--text-muted); font-size: 14px; text-align: center; height: 20px;">카메라 활성화 대기 중...</p>
+          <p id="qr-status"
+            style="margin-top: 16px; color: var(--text-muted); font-size: 14px; text-align: center; height: 20px;">카메라
+            활성화 대기 중...</p>
         </div>
 
         <!-- Attendance status block placed below scanner -->
@@ -39,9 +45,14 @@
         </div>
 
         <!-- Success Message -->
-        <div id="scan-success-msg" class="hidden" style="width: 100%; display: flex; flex-direction: column; align-items: center; padding-top: 20px;">
-          <div style="width: 80px; height: 80px; border-radius: 50%; background-color: var(--primary); display: flex; justify-content: center; align-items: center; margin-bottom: 24px; box-shadow: 0 0 30px rgba(202, 255, 4, 0.4);">
-            <svg width="40" height="40" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        <div id="scan-success-msg" class="hidden"
+          style="width: 100%; display: flex; flex-direction: column; align-items: center; padding-top: 20px;">
+          <div
+            style="width: 80px; height: 80px; border-radius: 50%; background-color: var(--primary); display: flex; justify-content: center; align-items: center; margin-bottom: 24px; box-shadow: 0 0 30px rgba(202, 255, 4, 0.4);">
+            <svg width="40" height="40" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"
+              stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
           </div>
           <h2 style="font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 8px;">출석 완료!</h2>
           <p style="color: var(--text-muted); text-align: center;">오늘도 멋진 러닝을 응원합니다.<br>대시보드에서 보상 진행률을 확인하세요.</p>
@@ -58,23 +69,36 @@
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
       <a href="dashboard.html" class="nav-item">
-        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <svg viewBox="0 0 24 24">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
         <span>홈</span>
       </a>
       <a href="attendance.html" class="nav-item active">
-        <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+        <svg viewBox="0 0 24 24">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
         <span>출석</span>
       </a>
       <a href="run.html" class="nav-item">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
         <span>러닝</span>
       </a>
       <a href="profile.html" class="nav-item">
-        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+        <svg viewBox="0 0 24 24">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
         <span>MY</span>
       </a>
     </nav>
   </div>
   <script src="app.js"></script>
 </body>
+
 </html>
