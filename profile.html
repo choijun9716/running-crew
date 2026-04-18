@@ -20,8 +20,8 @@
           <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
         </div>
         <div>
-          <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">러너 0101234</h2>
-          <p style="font-size: 14px; color: var(--text-muted);">시즌 1 크루원</p>
+          <h2 id="profile-name" style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">러너</h2>
+          <p id="profile-phone" style="font-size: 14px; color: var(--text-muted);">시즌 1 크루원</p>
         </div>
       </section>
 
@@ -29,11 +29,11 @@
       <section style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px;">
         <div class="glass-panel" style="padding: 20px;">
           <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">총 러닝 거리</div>
-          <div style="font-size: 24px; font-weight: 700;">12.5 <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">km</span></div>
+          <div style="font-size: 24px; font-weight: 700;"><span id="profile-dist">0.0</span> <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">km</span></div>
         </div>
         <div class="glass-panel" style="padding: 20px;">
           <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">총 출석 횟수</div>
-          <div style="font-size: 24px; font-weight: 700;">4 <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">회</span></div>
+          <div style="font-size: 24px; font-weight: 700;"><span id="profile-count">0</span> <span style="font-size: 14px; font-weight: 500; color: var(--text-muted);">회</span></div>
         </div>
       </section>
 

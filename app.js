@@ -18,6 +18,8 @@ function navigateTo(url) {
 async function dbSaveUser(phone, name) {
   localStorage.setItem('userPhone', phone);
   localStorage.setItem('userName', name);
+  localStorage.setItem('attendanceCount', '0');
+  localStorage.setItem('totalDistance', '0');
   localStorage.setItem('isLoggedIn', 'true');
   
   if (SHEET_API_URL) {
@@ -36,6 +38,15 @@ async function dbSaveUser(phone, name) {
 async function dbRecordRun(distance, timeStr, paceStr) {
   let prevDist = parseFloat(localStorage.getItem('totalDistance') || '0');
   localStorage.setItem('totalDistance', (prevDist + distance).toFixed(2));
+  
+  // Save recent run to local
+  const runInfo = {
+    distance: distance.toFixed(2),
+    time: timeStr,
+    pace: paceStr,
+    date: new Date().toLocaleString()
+  };
+  localStorage.setItem('recentRun', JSON.stringify(runInfo));
 
   if (SHEET_API_URL) {
     const phone = localStorage.getItem('userPhone') || 'unknown';
@@ -190,6 +201,24 @@ function updateDisplayNumbers() {
   if (profilePhone) profilePhone.innerText = phone;
   if (profileDist) profileDist.innerText = dist;
   if (profileCount) profileCount.innerText = count.toString();
+  
+  // Dashboard Recent Run
+  const recentRunCard = document.getElementById('recent-run-card');
+  const recentRunStr = localStorage.getItem('recentRun');
+  
+  if (recentRunCard && recentRunStr) {
+    const runInfo = JSON.parse(recentRunStr);
+    recentRunCard.innerHTML = `
+      <div>
+        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">${runInfo.date}</div>
+        <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">최근 러닝 완료 🏃‍♂️</div>
+        <div style="font-size: 13px; color: var(--text-muted);">${runInfo.distance}km • ${runInfo.time} • ${runInfo.pace}/km</div>
+      </div>
+      <div style="width: 40px; height: 40px; border-radius: 50%; background-color: var(--primary); display: flex; justify-content: center; align-items: center; color: #000;">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+    `;
+  }
 }
 
 // Call on every page load
