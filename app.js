@@ -485,7 +485,8 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 const startRunBtn = document.getElementById('start-run-btn');
 const stopRunBtn = document.getElementById('stop-run-btn');
 if (startRunBtn && document.getElementById('map')) {
-  let isRunning = false, time = 0, dist = 0, lastPos = null, watchId = null, timer = null;
+  let isRunning = false, dist = 0, lastPos = null, watchId = null, timer = null;
+  let startTime = 0, elapsedMsBeforePause = 0, wakeLock = null;
   const map = L.map('map').setView([37.5665, 126.9780], 15);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
   const path = L.polyline([], {color: '#FF793E', weight: 5}).addTo(map);
@@ -498,8 +499,9 @@ if (startRunBtn && document.getElementById('map')) {
     document.getElementById('map-overlay').style.display = 'none';
   });
 
-  startRunBtn.onclick = () => {
-    if (!isRunning && time === 0) {
+  startRunBtn.onclick = async () => {
+    const totalSecondsSoFar = Math.floor(elapsedMsBeforePause / 1000);
+    if (!isRunning && totalSecondsSoFar === 0) {
       const confirmStart = confirm("⚠️ 러닝 시작 전 주의사항\n\n1. 앱 새로고침을 하면 현재 기록이 사라질 수 있습니다.\n2. GPS 기반 측정으로 실제 거리와 약간의 오차가 발생할 수 있습니다.\n\n러닝을 시작하시겠습니까?");
       if (!confirmStart) return;
     }
@@ -507,6 +509,15 @@ if (startRunBtn && document.getElementById('map')) {
     isRunning = !isRunning;
     if (isRunning) {
       // Start or Resume
+      startTime = Date.now();
+      
+      // Wake Lock (Keep screen on)
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+        } catch (err) {}
+      }
+
       const metricsCont = document.getElementById('metrics-container');
       if (metricsCont) metricsCont.classList.remove('hidden');
       if (stopRunBtn) stopRunBtn.classList.add('hidden');
@@ -526,24 +537,50 @@ if (startRunBtn && document.getElementById('map')) {
       }, null, { enableHighAccuracy: true });
 
       timer = setInterval(() => {
-        time++;
-        const m = Math.floor(time/60).toString().padStart(2,'0'), s = (time%60).toString().padStart(2,'0');
+        const now = Date.now();
+        const totalMs = elapsedMsBeforePause + (now - startTime);
+        const totalSeconds = Math.floor(totalMs / 1000);
+        const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+        const s = (totalSeconds % 60).toString().padStart(2, '0');
         document.getElementById('time-display').innerText = `${m}:${s}`;
+        
         if (dist > 0.01) {
-          const paceMin = Math.floor((time/60)/dist), paceSec = Math.floor((((time/60)/dist)-paceMin)*60);
-          document.getElementById('pace-display').innerText = `${paceMin}'${paceSec.toString().padStart(2,'0')}"`;
+          const paceMin = Math.floor((totalSeconds / 60) / dist);
+          const paceSec = Math.floor((((totalSeconds / 60) / dist) - paceMin) * 60);
+          document.getElementById('pace-display').innerText = `${paceMin}'${paceSec.toString().padStart(2, '0')}"`;
         }
       }, 1000);
     } else {
       // Pause
+      elapsedMsBeforePause += (Date.now() - startTime);
       clearInterval(timer);
       navigator.geolocation.clearWatch(watchId);
+      
+      // Release Wake Lock
+      if (wakeLock) {
+        wakeLock.release().then(() => { wakeLock = null; });
+      }
+
       startRunBtn.innerText = '재개하기';
       startRunBtn.style.backgroundColor = 'var(--primary)';
       startRunBtn.style.color = '#000';
       if (stopRunBtn) stopRunBtn.classList.remove('hidden');
     }
   };
+
+  // Visibility change handling for better sync
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && isRunning) {
+      // Force UI update when returning to tab
+      const now = Date.now();
+      const totalMs = elapsedMsBeforePause + (now - startTime);
+      const totalSeconds = Math.floor(totalMs / 1000);
+      const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+      const s = (totalSeconds % 60).toString().padStart(2, '0');
+      const displayElem = document.getElementById('time-display');
+      if (displayElem) displayElem.innerText = `${m}:${s}`;
+    }
+  });
 
   if (stopRunBtn) {
     stopRunBtn.onclick = async () => {
@@ -561,7 +598,7 @@ if (startRunBtn && document.getElementById('map')) {
       stopRunBtn.classList.add('hidden');
       
       // Reset values for next run
-      dist = 0; time = 0; lastPos = null;
+      dist = 0; startTime = 0; elapsedMsBeforePause = 0; lastPos = null;
       document.getElementById('distance-display').innerText = '0.00';
       document.getElementById('time-display').innerText = '00:00';
       document.getElementById('pace-display').innerText = "0'00\"";
