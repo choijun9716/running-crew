@@ -76,11 +76,39 @@
               </div>
             </div>
           </section>
+
+          <!-- Slide 3: Personal Stats -->
+          <section class="slide">
+            <div class="glass-panel" style="padding: 20px; height: 100%;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
+                <div>
+                  <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 4px;">나의 누적 활동 통계</div>
+                  <div style="font-size: 20px; font-weight: 700; color: var(--primary);">기록은 배신하지 않아요 🏔️</div>
+                </div>
+              </div>
+
+              <div id="personal-stats-list" style="display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 14px; color: var(--text-muted);">총 참여 횟수</div>
+                  <div style="font-size: 16px; font-weight: 700;"><span id="stats-total-count">0</span>회</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                  <div style="font-size: 14px; color: var(--text-muted);">총 러닝 거리</div>
+                  <div style="font-size: 16px; font-weight: 700;"><span id="stats-total-dist">0.00</span>km</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+                  <div style="font-size: 14px; color: var(--text-muted);">평균 페이스</div>
+                  <div style="font-size: 20px; font-weight: 800; color: var(--primary);"><span id="stats-avg-pace">0'00"</span></div>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
 
         <!-- Slider Pagination Dots -->
         <div class="slider-dots">
           <div class="dot active"></div>
+          <div class="dot"></div>
           <div class="dot"></div>
         </div>
       </div>

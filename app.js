@@ -75,21 +75,44 @@ async function dbSyncTotalDistance() {
     const data = await res.json();
     if (data && Array.isArray(data)) {
       // 1. Total Distance Sync Local
-      const total = data.reduce((acc, curr) => acc + parseFloat(curr.distance || 0), 0);
-      localStorage.setItem('totalDistance', total.toFixed(2));
+      let totalDist = 0;
+      let totalSeconds = 0;
+      
+      data.forEach(run => {
+        const d = parseFloat(run.distance || 0);
+        totalDist += d;
+        
+        // Parse "MM:SS" or "M:SS"
+        const timeParts = (run.time || "00:00").split(':');
+        if (timeParts.length === 2) {
+          totalSeconds += (parseInt(timeParts[0]) * 60) + parseInt(timeParts[1]);
+        }
+      });
+      
+      localStorage.setItem('totalDistance', totalDist.toFixed(2));
+      
+      // Calculate Average Pace (Total Seconds / Total Distance)
+      if (totalDist > 0) {
+        const avgTotalPaceSec = totalSeconds / totalDist;
+        const m = Math.floor(avgTotalPaceSec / 60);
+        const s = Math.floor(avgTotalPaceSec % 60);
+        localStorage.setItem('averagePace', `${m}'${s.toString().padStart(2, '0')}"`);
+      } else {
+        localStorage.setItem('averagePace', "0'00\"");
+      }
       
       // 1-2. Sync to Users sheet for Ranking
       if (SHEET_API_URL) {
         fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: { totalDistance: total.toFixed(2) } })
+          body: JSON.stringify({ data: { totalDistance: totalDist.toFixed(2) } })
         }).catch(err => console.error("Users 거리 동기화 실패", err));
       }
       
-      // 2. Recent Run Sync (Show last record if it exists)
+      // 2. Recent Run Sync
       if (data.length > 0) {
-        const lastRun = data[data.length - 1]; // Assume last row is newest
+        const lastRun = data[data.length - 1];
         localStorage.setItem('recentRun', JSON.stringify({
           distance: lastRun.distance,
           time: lastRun.time,
@@ -98,7 +121,7 @@ async function dbSyncTotalDistance() {
         }));
       }
       
-      updateDisplayNumbers(true); // Recursively update UI (skip sync call)
+      updateDisplayNumbers(true);
     }
   } catch (e) {
     console.error("거리 동기화 실패", e);
@@ -276,22 +299,37 @@ async function updateDisplayNumbers(skipSync = false) {
       <div style="width: 40px; height: 40px; border-radius: 50%; background-color: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
       </div>
-    `;
   }
+
+  // --- STATS SLIDE RENDERING ---
+  const statsCount = document.getElementById('stats-total-count');
+  const statsDist = document.getElementById('stats-total-dist');
+  const statsPace = document.getElementById('stats-avg-pace');
+  if (statsCount) statsCount.innerText = count.toString();
+  if (statsDist) statsDist.innerText = dist;
+  if (statsPace) statsPace.innerText = localStorage.getItem('averagePace') || "0'00\"";
 
   // --- Ranking Logic ---
   fetchAndRenderRanking();
 
-  // --- Slider Dots Logic ---
+  // --- Slider Dots Logic (Corrected) ---
   const slider = document.getElementById('dashboard-slider');
   const dots = document.querySelectorAll('.dot');
   if (slider && dots.length > 0) {
-    slider.addEventListener('scroll', () => {
-      const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+    // Sync dots immediately on render
+    const initialIndex = Math.round(slider.scrollLeft / slider.offsetWidth) || 0;
+    dots.forEach((dot, i) => dot.classList.toggle('active', i === initialIndex));
+
+    // Listen for scroll to update dots
+    slider.onscroll = () => {
+      const scrollPos = slider.scrollLeft;
+      const width = slider.offsetWidth;
+      if (width === 0) return;
+      const index = Math.round(scrollPos / width);
       dots.forEach((dot, i) => {
         dot.classList.toggle('active', i === index);
       });
-    });
+    };
   }
 }
 
