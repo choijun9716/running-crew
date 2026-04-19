@@ -74,9 +74,18 @@ async function dbSyncTotalDistance() {
     const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Runs`);
     const data = await res.json();
     if (data && Array.isArray(data)) {
-      // 1. Total Distance Sync
+      // 1. Total Distance Sync Local
       const total = data.reduce((acc, curr) => acc + parseFloat(curr.distance || 0), 0);
       localStorage.setItem('totalDistance', total.toFixed(2));
+      
+      // 1-2. Sync to Users sheet for Ranking
+      if (SHEET_API_URL) {
+        fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: { totalDistance: total.toFixed(2) } })
+        }).catch(err => console.error("Users 거리 동기화 실패", err));
+      }
       
       // 2. Recent Run Sync (Show last record if it exists)
       if (data.length > 0) {
@@ -269,6 +278,57 @@ async function updateDisplayNumbers(skipSync = false) {
       </div>
     `;
   }
+
+  // --- Ranking Logic ---
+  fetchAndRenderRanking();
+
+  // --- Slider Dots Logic ---
+  const slider = document.getElementById('dashboard-slider');
+  const dots = document.querySelectorAll('.dot');
+  if (slider && dots.length > 0) {
+    slider.addEventListener('scroll', () => {
+      const index = Math.round(slider.scrollLeft / slider.offsetWidth);
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('active', i === index);
+      });
+    });
+  }
+}
+
+async function fetchAndRenderRanking() {
+  const rankingList = document.getElementById('ranking-list');
+  if (!rankingList || !SHEET_API_URL) return;
+
+  try {
+    const res = await fetch(`${SHEET_API_URL}?sheet=Users`);
+    const users = await res.json();
+    
+    if (users && Array.isArray(users)) {
+      // Sort by totalDistance descending
+      const rankedUsers = users
+        .filter(u => u.totalDistance)
+        .sort((a, b) => parseFloat(b.totalDistance) - parseFloat(a.totalDistance))
+        .slice(0, 5); // Top 5
+
+      if (rankedUsers.length > 0) {
+        rankingList.innerHTML = rankedUsers.map((user, i) => `
+          <div class="ranking-item rank-${i+1}">
+            <div style="display: flex; align-items: center;">
+              <div class="rank-badge">${i+1}</div>
+              <div style="font-size: 15px; font-weight: 600;">${user.name}</div>
+            </div>
+            <div style="font-size: 14px; font-weight: 700; color: var(--primary);">${user.totalDistance} <span style="font-size: 11px; color: var(--text-muted);">km</span></div>
+          </div>
+        `).join('');
+      } else {
+        rankingList.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px;">아직 기록된 랭킹이 없습니다.</div>';
+      }
+    }
+  } catch (e) {
+    console.error("랭킹 호출 실패", e);
+    rankingList.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px;">데이터를 불러올 수 없습니다.</div>';
+  }
+}
 
   // "Show More" Modal Logic
   const showMoreBtn = document.getElementById('show-all-runs');

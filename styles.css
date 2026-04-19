@@ -221,3 +221,81 @@ button {
 .hidden {
   display: none !important;
 }
+
+/* Dashboard Slider */
+.slider-wrapper {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.slider-container {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.slider-container::-webkit-scrollbar {
+  display: none;
+}
+
+.slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+
+.slider-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.dot.active {
+  width: 18px;
+  background: var(--primary);
+  border-radius: 10px;
+}
+
+/* Ranking Specifics */
+.ranking-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.ranking-item:last-child {
+  border-bottom: none;
+}
+
+.rank-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.1);
+  margin-right: 12px;
+}
+
+.rank-1 .rank-badge { background: var(--primary); color: #000; }
+.rank-2 .rank-badge { background: #fff; color: #000; opacity: 0.9; }
+.rank-3 .rank-badge { background: #fff; color: #000; opacity: 0.7; }
+

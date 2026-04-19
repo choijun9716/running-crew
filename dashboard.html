@@ -28,33 +28,62 @@
         </a>
       </header>
 
-      <!-- Multi-tier Reward Progress (Simplified) -->
-      <section class="glass-panel" style="padding: 20px; margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
-          <div>
-            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 4px;">나의 출석 달성 회수</div>
-            <div style="font-size: 28px; font-weight: 700;">
-              <span id="progress-value">0</span>
-              <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);"> / 25회</span>
+      <!-- Slider Wrapper -->
+      <div class="slider-wrapper">
+        <div class="slider-container" id="dashboard-slider">
+          <!-- Slide 1: My Attendance -->
+          <section class="slide">
+            <div class="glass-panel" style="padding: 20px; height: 100%;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
+                <div>
+                  <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 4px;">나의 출석 달성 회수</div>
+                  <div style="font-size: 28px; font-weight: 700;">
+                    <span id="progress-value">0</span>
+                    <span style="font-size: 16px; font-weight: 500; color: var(--text-muted);"> / 25회</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <div id="reward-10" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                  <div style="font-size: 13px; font-weight: 600;"><span style="color: var(--text-muted); margin-right: 6px;">10회</span> 🥕 당근라페</div>
+                  <div class="reward-status" style="font-size: 11px; color: var(--text-muted); font-weight: 600;">진행중</div>
+                </div>
+                <div id="reward-20" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                  <div style="font-size: 13px; font-weight: 600;"><span style="color: var(--text-muted); margin-right: 6px;">20회</span> 🍅 방토라미네이드</div>
+                  <div class="reward-status" style="font-size: 11px; color: var(--text-muted); font-weight: 600;">진행중</div>
+                </div>
+                <div id="reward-25" style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+                  <div style="font-size: 13px; font-weight: 600;"><span style="color: var(--text-muted); margin-right: 6px;">25회</span> 🥗 샐러드 코스</div>
+                  <div class="reward-status" style="font-size: 11px; color: var(--text-muted); font-weight: 600;">도전!</div>
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
+
+          <!-- Slide 2: Crew Ranking -->
+          <section class="slide">
+            <div class="glass-panel" style="padding: 20px; height: 100%;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px;">
+                <div>
+                  <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 4px;">크루 러닝 거리 랭킹</div>
+                  <div style="font-size: 20px; font-weight: 700; color: var(--primary);">누가 가장 많이 뛰었을까? 🔥</div>
+                </div>
+              </div>
+
+              <div id="ranking-list" style="display: flex; flex-direction: column;">
+                <div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px;">순위를 불러오는 중...</div>
+              </div>
+            </div>
+          </section>
         </div>
 
-        <div style="display: flex; flex-direction: column; gap: 12px;">
-          <div id="reward-10" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-            <div style="font-size: 14px; font-weight: 600;"><span style="color: var(--text-muted); margin-right: 8px;">10회</span> 🥕 당근라페 증정</div>
-            <div class="reward-status" style="font-size: 12px; color: var(--text-muted); font-weight: 600;">진행중</div>
-          </div>
-          <div id="reward-20" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-            <div style="font-size: 14px; font-weight: 600;"><span style="color: var(--text-muted); margin-right: 8px;">20회</span> 🍅 방토라미네이드 증정</div>
-            <div class="reward-status" style="font-size: 12px; color: var(--text-muted); font-weight: 600;">진행중</div>
-          </div>
-          <div id="reward-25" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-            <div style="font-size: 14px; font-weight: 600;"><span style="color: var(--text-muted); margin-right: 8px;">25회</span> 🥗 샐러드 1주 코스 증정</div>
-            <div class="reward-status" style="font-size: 12px; color: var(--text-muted); font-weight: 600;">도전!</div>
-          </div>
+        <!-- Slider Pagination Dots -->
+        <div class="slider-dots">
+          <div class="dot active"></div>
+          <div class="dot"></div>
         </div>
-      </section>
+      </div>
 
       <!-- Quick Menu -->
       <section style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
