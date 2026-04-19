@@ -230,11 +230,13 @@ button {
 
 .slider-container {
   display: flex;
+  flex-wrap: nowrap;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   -ms-overflow-style: none;
   scrollbar-width: none;
+  width: 100%;
 }
 
 .slider-container::-webkit-scrollbar {
@@ -243,9 +245,11 @@ button {
 
 .slide {
   flex: 0 0 100%;
+  width: 100%;
   scroll-snap-align: start;
   padding: 0 4px;
   box-sizing: border-box;
+  margin-bottom: 0 !important; /* 내부 섹션 마진 제거 */
 }
 
 .slider-dots {
