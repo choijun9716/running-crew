@@ -7,6 +7,11 @@ const ADMIN_PASSWORD = "1234";
 const SHEET_API_URL = "https://sheetdb.io/api/v1/8o6e5w7imfh0m";
 const IMGBB_API_KEY = "117dfb947bc9e0045774b193d1eef7b6";
 
+// 최적화를 위한 캐시 설정
+const RANKING_CACHE_KEY = 'ranking_data';
+const RANKING_CACHE_TIME = 5 * 60 * 1000; // 5분
+const SYNC_INTERVAL = 10 * 60 * 1000; // 10분 (동기화 주기)
+
 function navigateTo(url) {
   window.location.href = url;
 }
@@ -60,9 +65,18 @@ async function dbRecordRun(distance, timeStr, paceStr) {
   }
 }
 
-async function dbSyncTotalDistance() {
+async function dbSyncTotalDistance(force = false) {
   const phone = localStorage.getItem('userPhone');
   if (!phone || !SHEET_API_URL) return;
+
+  // 동기화 주기 체크 (강제 동기화가 아니면 건너뜀)
+  const lastSync = localStorage.getItem('lastSyncTime');
+  if (!force && lastSync && (Date.now() - parseInt(lastSync) < SYNC_INTERVAL)) {
+    console.log("동기화 건너뜀 (최근 완료됨)");
+    updateDisplayNumbers(true);
+    return;
+  }
+
   try {
     const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Runs`);
     const data = await res.json();
@@ -74,6 +88,8 @@ async function dbSyncTotalDistance() {
         if (parts.length === 2) totalSeconds += (parseInt(parts[0])*60) + parseInt(parts[1]);
       });
       localStorage.setItem('totalDistance', totalDist.toFixed(2));
+      localStorage.setItem('lastSyncTime', Date.now().toString());
+
       if (totalDist > 0) {
         const avg = totalSeconds / totalDist;
         localStorage.setItem('averagePace', `${Math.floor(avg/60)}'${Math.floor(avg%60).toString().padStart(2,'0')}"`);
@@ -125,23 +141,18 @@ async function uploadProfileImage(file) {
     
     if (data.success) {
       const imageUrl = data.data.url;
-      console.log("ImgBB 업로드 성공:", imageUrl);
       
-      // 로컬 저장
+      // 로컬 저장 즉시 반영
       localStorage.setItem('userProfileImage', imageUrl);
       currentUser.profileImage = imageUrl;
 
-      // 시트 업데이트 (SheetDB)
+      // 시트 업데이트 (기다리지 않고 백그라운드에서 처리)
       if (SHEET_API_URL) {
-        try {
-          await fetch(`${SHEET_API_URL}/phone/${currentUser.phone}?sheet=Users`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: { profileImage: imageUrl } })
-          });
-        } catch (sheetErr) {
-          console.error("시트 업데이트 실패", sheetErr);
-        }
+        fetch(`${SHEET_API_URL}/phone/${currentUser.phone}?sheet=Users`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: { profileImage: imageUrl } })
+        }).catch(e => console.error("시트 업데이트 실패", e));
       }
 
       updateDisplayNumbers(true);
@@ -164,16 +175,17 @@ async function updateDisplayNumbers(skipSync = false) {
     isSyncing = true;
     await dbSyncTotalDistance();
     
-    // 유저 정보 가져오기 (프로필 이미지 포함)
+    // 유저 정보 동기화 (마지막 동기화 시간이 오래되었을 때만)
     const phone = localStorage.getItem('userPhone');
-    if (phone && SHEET_API_URL) {
+    const lastUserSync = localStorage.getItem('lastUserSyncTime');
+    if (phone && SHEET_API_URL && (!lastUserSync || (Date.now() - parseInt(lastUserSync) > SYNC_INTERVAL * 2))) {
       try {
         const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Users`);
         const userData = await res.json();
         if (userData && userData.length > 0) {
-          const img = userData[0].profileImage || '';
-          localStorage.setItem('userProfileImage', img);
+          localStorage.setItem('userProfileImage', userData[0].profileImage || '');
           localStorage.setItem('userName', userData[0].name);
+          localStorage.setItem('lastUserSyncTime', Date.now().toString());
         }
       } catch (e) {}
     }
@@ -298,21 +310,49 @@ async function updateDisplayNumbers(skipSync = false) {
 async function fetchAndRenderRanking() {
   const rankingList = document.getElementById('ranking-list');
   if (!rankingList || !SHEET_API_URL) return;
+
+  // 1. 캐시 확인
+  const cached = sessionStorage.getItem(RANKING_CACHE_KEY);
+  if (cached) {
+    const { timestamp, data } = JSON.parse(cached);
+    if (Date.now() - timestamp < RANKING_CACHE_TIME) {
+      console.log("랭킹 데이터 캐시 사용");
+      renderRankingItems(data);
+      return;
+    }
+  }
+
   try {
     const res = await fetch(`${SHEET_API_URL}?sheet=Users`);
     const users = await res.json();
     if (users && Array.isArray(users)) {
-      const ranked = users.filter(u => u.totalDistance).sort((a,b) => parseFloat(b.totalDistance) - parseFloat(a.totalDistance)).slice(0, 5);
-      if (ranked.length > 0) {
-        rankingList.innerHTML = ranked.map((u, i) => `
-          <div class="ranking-item rank-${i+1}">
-            <div style="display: flex; align-items: center;"><div class="rank-badge">${i+1}</div><div style="font-size: 15px; font-weight: 600;">${u.name}</div></div>
-            <div style="font-size: 14px; font-weight: 700; color: var(--primary);">${u.totalDistance} <span style="font-size: 11px; color: var(--text-muted);">km</span></div>
-          </div>
-        `).join('');
-      }
+      // 2. 캐시 저장
+      sessionStorage.setItem(RANKING_CACHE_KEY, JSON.stringify({
+        timestamp: Date.now(),
+        data: users
+      }));
+      renderRankingItems(users);
     }
   } catch (e) { console.error(e); }
+}
+
+function renderRankingItems(users) {
+  const rankingList = document.getElementById('ranking-list');
+  if (!rankingList) return;
+  
+  const ranked = users
+    .filter(u => u.totalDistance)
+    .sort((a,b) => parseFloat(b.totalDistance) - parseFloat(a.totalDistance))
+    .slice(0, 5);
+    
+  if (ranked.length > 0) {
+    rankingList.innerHTML = ranked.map((u, i) => `
+      <div class="ranking-item rank-${i+1}">
+        <div style="display: flex; align-items: center;"><div class="rank-badge">${i+1}</div><div style="font-size: 15px; font-weight: 600;">${u.name}</div></div>
+        <div style="font-size: 14px; font-weight: 700; color: var(--primary);">${u.totalDistance} <span style="font-size: 11px; color: var(--text-muted);">km</span></div>
+      </div>
+    `).join('');
+  }
 }
 
 // ==========================================
@@ -376,15 +416,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!nameIn.value.trim()) return;
         saveBtn.disabled = true; saveBtn.innerText = "저장 중...";
         try {
-          await fetch(`${SHEET_API_URL}/phone/${currentUser.phone}?sheet=Users`, {
+          // 서버 업데이트 (백그라운드)
+          fetch(`${SHEET_API_URL}/phone/${currentUser.phone}?sheet=Users`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: { name: nameIn.value.trim() } })
-          });
+          }).catch(e => console.error("서버 반영 실패", e));
+
+          // 로컬 데이터 즉시 업데이트
           localStorage.setItem('userName', nameIn.value.trim());
           currentUser.name = nameIn.value.trim();
           editModal.classList.add('hidden');
-          updateDisplayNumbers();
+          updateDisplayNumbers(true); // skipSync=true 로 호출하여 추가 API 방지
         } catch (e) { alert("오류"); }
         saveBtn.disabled = false; saveBtn.innerText = "저장";
       };
