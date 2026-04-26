@@ -286,7 +286,7 @@ button {
 
 /* Ranking Specifics - Enhanced */
 #ranking-list {
-  max-height: 231px; /* 3위까지만 보이도록 높이 조정 */
+  max-height: 210px; /* 3위까지만 확실히 보이도록 더 줄임 */
   overflow-y: auto;
   padding-right: 8px;
   scrollbar-width: thin;
