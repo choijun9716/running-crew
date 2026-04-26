@@ -342,6 +342,13 @@ button {
   object-fit: cover;
 }
 
+.slider-card .glass-panel {
+  min-height: 380px; /* 모든 슬라이드 상자 크기를 일정하게 고정 */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
 .rank-avatar-placeholder {
   width: 100%;
   height: 100%;
@@ -350,4 +357,3 @@ button {
   align-items: center;
   color: var(--text-muted);
 }
-
