@@ -95,6 +95,15 @@ async function dbSyncTotalDistance(force = false) {
       localStorage.setItem('totalDistance', totalDist.toFixed(2));
       localStorage.setItem('lastSyncTime', Date.now().toString());
 
+      // 서버(Users 시트)에 합계 거리 업데이트 (백그라운드)
+      if (SHEET_API_URL) {
+        fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: { totalDistance: totalDist.toFixed(2) } })
+        }).catch(e => console.error("거리 서버 업데이트 실패", e));
+      }
+
       if (totalDist > 0) {
         const avg = totalSeconds / totalDist;
         localStorage.setItem('averagePace', `${Math.floor(avg/60)}'${Math.floor(avg%60).toString().padStart(2,'0')}"`);
@@ -378,18 +387,43 @@ function renderRankingItems(users) {
   const rankingList = document.getElementById('ranking-list');
   if (!rankingList) return;
   
+  // 1. 숫자 정렬 (totalDistance 기준 내림차순)
   const ranked = users
-    .filter(u => u.totalDistance)
-    .sort((a,b) => parseFloat(b.totalDistance) - parseFloat(a.totalDistance))
+    .filter(u => u.name && u.phone) // 유효한 유저만
+    .map(u => ({
+      ...u,
+      distNum: parseFloat(u.totalDistance || 0),
+      attNum: parseInt(u.attendanceCount || 0)
+    }))
+    .sort((a, b) => b.distNum - a.distNum)
     .slice(0, 5);
     
   if (ranked.length > 0) {
-    rankingList.innerHTML = ranked.map((u, i) => `
-      <div class="ranking-item rank-${i+1}">
-        <div style="display: flex; align-items: center;"><div class="rank-badge">${i+1}</div><div style="font-size: 15px; font-weight: 600;">${u.name}</div></div>
-        <div style="font-size: 14px; font-weight: 700; color: var(--primary);">${u.totalDistance} <span style="font-size: 11px; color: var(--text-muted);">km</span></div>
-      </div>
-    `).join('');
+    rankingList.innerHTML = ranked.map((u, i) => {
+      const isTop3 = i < 3;
+      const profilePic = u.profileImage 
+        ? `<img src="${u.profileImage}" class="rank-avatar">`
+        : `<div class="rank-avatar-placeholder"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>`;
+
+      return `
+        <div class="ranking-item">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <div class="rank-badge ${i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : ''}">${i + 1}</div>
+            <div class="rank-profile-wrapper">
+              ${profilePic}
+            </div>
+            <div>
+              <div style="font-size: 15px; font-weight: 700;">${u.name}</div>
+              <div style="font-size: 11px; color: var(--text-muted);">${u.attNum}회 출석</div>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 16px; font-weight: 800; color: var(--primary);">${u.distNum.toFixed(1)}</div>
+            <div style="font-size: 10px; color: var(--text-muted); font-weight: 500;">km</div>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 }
 
