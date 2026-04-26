@@ -5,7 +5,7 @@
 // ==========================================
 const ADMIN_PASSWORD = "1234";
 const SHEET_API_URL = "https://sheetdb.io/api/v1/8o6e5w7imfh0m";
-const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx6dPhku_GFXJSkWasC3GlRuUzarP6A3W2GGk-Wy3ijsvxLDRGKAjdQ-BH_2f_9ksLF/exec";
+const IMGBB_API_KEY = "117dfb947bc9e0045774b193d1eef7b6";
 
 function navigateTo(url) {
   window.location.href = url;
@@ -106,31 +106,26 @@ async function dbCheckAttendance() {
 // 3. UI Logic & Sync
 // ==========================================
 async function uploadProfileImage(file) {
-  if (!file || !GAS_API_URL) return;
+  if (!file || !IMGBB_API_KEY) return;
 
   const overlay = document.getElementById('image-loading-overlay');
   if (overlay) overlay.classList.remove('hidden');
 
   try {
-    const reader = new FileReader();
-    const result = await new Promise((resolve, reject) => {
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    // 1. ImgBB API로 이미지 업로드 (FormData 활용)
+    const formData = new FormData();
+    formData.append("image", file);
 
-    const response = await fetch(GAS_API_URL, {
+    const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
       method: "POST",
-      body: JSON.stringify({
-        image: result,
-        fileName: `profile_${currentUser.phone}_${Date.now()}`,
-        contentType: file.type
-      })
+      body: formData
     });
 
     const data = await response.json();
-    if (data.result === "success") {
-      const imageUrl = data.url;
+    
+    if (data.success) {
+      const imageUrl = data.data.url;
+      console.log("ImgBB 업로드 성공:", imageUrl);
       
       // 로컬 저장
       localStorage.setItem('userProfileImage', imageUrl);
@@ -138,20 +133,26 @@ async function uploadProfileImage(file) {
 
       // 시트 업데이트 (SheetDB)
       if (SHEET_API_URL) {
-        await fetch(`${SHEET_API_URL}/phone/${currentUser.phone}?sheet=Users`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: { profileImage: imageUrl } })
-        });
+        try {
+          await fetch(`${SHEET_API_URL}/phone/${currentUser.phone}?sheet=Users`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: { profileImage: imageUrl } })
+          });
+        } catch (sheetErr) {
+          console.error("시트 업데이트 실패", sheetErr);
+        }
       }
 
       updateDisplayNumbers(true);
+      alert("프로필 이미지가 변경되었습니다! ✨");
     } else {
-      alert("업로드 실패: " + data.error);
+      console.error("ImgBB 에러:", data);
+      alert("이미지 업로드에 실패했습니다. (ImgBB 오류)");
     }
   } catch (e) {
-    console.error("업로드 오류", e);
-    alert("이미지 업로드 중 오류가 발생했습니다.");
+    console.error("업로드 과정 중 예외 발생:", e);
+    alert("이미지 업로드 중 오류가 발생했습니다. 로컬 서버(Live Server 등)를 사용 중인지 확인해 주세요.");
   } finally {
     if (overlay) overlay.classList.add('hidden');
   }
