@@ -285,6 +285,23 @@ button {
 }
 
 /* Ranking Specifics - Enhanced */
+#ranking-list {
+  max-height: 231px; /* 3위까지만 보이도록 높이 조정 */
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+#ranking-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+#ranking-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
 .ranking-item {
   display: flex;
   align-items: center;

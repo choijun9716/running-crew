@@ -8,6 +8,7 @@ const SHEET_API_URL = "https://sheetdb.io/api/v1/8o6e5w7imfh0m";
 const IMGBB_API_KEY = "117dfb947bc9e0045774b193d1eef7b6";
 
 // 최적화를 위한 캐시 설정
+const DEFAULT_PROFILE_IMAGE = "https://i.ibb.co/0yVCptYj/2026-04-26-2-49-24.png";
 const RANKING_CACHE_KEY = 'ranking_data';
 const RANKING_CACHE_TIME = 5 * 60 * 1000; // 5분
 const SYNC_INTERVAL = 10 * 60 * 1000; // 10분 (동기화 주기)
@@ -248,16 +249,10 @@ async function updateDisplayNumbers(skipSync = false) {
   // 프로필 이미지 표시
   const profDisplay = document.getElementById('profile-img-display');
   const profDefault = document.getElementById('profile-default-icon');
-  if (profDisplay && profDefault) {
-    if (currentUser.profileImage) {
-      profDisplay.src = currentUser.profileImage;
-      profDisplay.style.display = 'block';
-      profDefault.style.display = 'none';
-    } else {
-      profDisplay.src = '';
-      profDisplay.style.display = 'none';
-      profDefault.style.display = 'block';
-    }
+  if (profDisplay) {
+    profDisplay.src = currentUser.profileImage || DEFAULT_PROFILE_IMAGE;
+    profDisplay.style.display = 'block';
+    if (profDefault) profDefault.style.display = 'none';
   }
 
   const dashboardName = document.getElementById('dashboard-name');
@@ -357,30 +352,51 @@ async function fetchAndRenderRanking() {
   const rankingList = document.getElementById('ranking-list');
   if (!rankingList || !SHEET_API_URL || isAuthPage) return;
 
-  // 1. 캐시 확인 (localStorage 로 변경하여 탭 이동 시 더 확실하게 방어)
+  // 1. 캐시 확인 (1분으로 단축하여 실시간성 강화)
   const cached = localStorage.getItem(RANKING_CACHE_KEY);
   if (cached) {
     const { timestamp, data } = JSON.parse(cached);
-    if (Date.now() - timestamp < RANKING_CACHE_TIME) {
-      console.log("랭킹 데이터 캐시 사용 (API 호출 생략)");
+    if (Date.now() - timestamp < 60000) { 
       renderRankingItems(data);
       return;
     }
   }
 
   try {
-    console.log("랭킹 차트 데이터 불러오는 중...");
-    const res = await fetch(`${SHEET_API_URL}?sheet=Users`);
-    const users = await res.json();
-    if (users && Array.isArray(users)) {
-      // 2. 캐시 저장
+    console.log("실시간 랭킹 집계 중...");
+    // 2. 유저 정보와 달리기 기록을 동시에 가져옴
+    const [resUsers, resRuns] = await Promise.all([
+      fetch(`${SHEET_API_URL}?sheet=Users`),
+      fetch(`${SHEET_API_URL}?sheet=Runs`)
+    ]);
+    
+    const users = await resUsers.json();
+    const runs = await resRuns.json();
+
+    if (Array.isArray(users) && Array.isArray(runs)) {
+      // 3. 기록 합산 (핸드폰 번호 기준)
+      const distanceMap = {};
+      runs.forEach(run => {
+        const phone = run.phone;
+        const dist = parseFloat(run.distance || 0);
+        distanceMap[phone] = (distanceMap[phone] || 0) + dist;
+      });
+
+      // 4. 유저 정보에 합산 거리 매핑
+      const rankingData = users.map(u => ({
+        ...u,
+        totalDistance: (distanceMap[u.phone] || 0).toFixed(1),
+        attendanceCount: u.attendanceCount || 0
+      }));
+
+      // 5. 캐시 저장 및 렌더링
       localStorage.setItem(RANKING_CACHE_KEY, JSON.stringify({
         timestamp: Date.now(),
-        data: users
+        data: rankingData
       }));
-      renderRankingItems(users);
+      renderRankingItems(rankingData);
     }
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error("랭킹 집계 실패", e); }
 }
 
 function renderRankingItems(users) {
@@ -396,14 +412,12 @@ function renderRankingItems(users) {
       attNum: parseInt(u.attendanceCount || 0) || 0
     }))
     .sort((a, b) => b.distNum - a.distNum)
-    .slice(0, 5);
+    .slice(0, 20); // 표시 인원을 20명으로 확대
     
   if (ranked.length > 0) {
     rankingList.innerHTML = ranked.map((u, i) => {
       const isTop3 = i < 3;
-      const profilePic = u.profileImage 
-        ? `<img src="${u.profileImage}" class="rank-avatar">`
-        : `<div class="rank-avatar-placeholder"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>`;
+      const profilePic = `<img src="${u.profileImage || DEFAULT_PROFILE_IMAGE}" class="rank-avatar">`;
 
       return `
         <div class="ranking-item">
