@@ -1,18 +1,28 @@
 // app.js
 
 // ==========================================
-// 1. 설정 (Settings)
+// 1. 설정 (Settings) & Helpers
 // ==========================================
-const ADMIN_PASSWORD = "1234"; // 관리자 출석 비밀번호
-const SHEET_API_URL = "https://sheetdb.io/api/v1/vhuuqnesv1okv"; // 구글 스프레드시트 API
+const ADMIN_PASSWORD = "1234";
+const SHEET_API_URL = "https://sheetdb.io/api/v1/8o6e5w7imfh0m";
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbx6dPhku_GFXJSkWasC3GlRuUzarP6A3W2GGk-Wy3ijsvxLDRGKAjdQ-BH_2f_9ksLF/exec";
 
-// Navigation helper
 function navigateTo(url) {
   window.location.href = url;
 }
 
+// Global UI State
+let currentUser = {
+  phone: localStorage.getItem('userPhone') || '010',
+  name: localStorage.getItem('userName') || '러너',
+  profileImage: localStorage.getItem('userProfileImage') || '',
+  count: parseInt(localStorage.getItem('attendanceCount') || '0'),
+  dist: parseFloat(localStorage.getItem('totalDistance') || '0').toFixed(1),
+  avgPace: localStorage.getItem('averagePace') || "0'00\""
+};
+
 // ==========================================
-// DB Controller
+// 2. DB Controller
 // ==========================================
 async function dbSaveUser(phone, name) {
   localStorage.setItem('userPhone', phone);
@@ -28,28 +38,15 @@ async function dbSaveUser(phone, name) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: [{ phone: phone, name: name, attendanceCount: 0, joinDate: new Date().toISOString() }] })
       });
-    } catch (e) {
-      console.error("DB 저장 실패", e);
-    }
+    } catch (e) { console.error("DB 저장 실패", e); }
   }
 }
 
 async function dbRecordRun(distance, timeStr, paceStr) {
   const runDate = new Date().toLocaleString();
-  const runInfo = {
-    distance: distance.toFixed(2),
-    time: timeStr,
-    pace: paceStr,
-    date: runDate
-  };
+  const runInfo = { distance: distance.toFixed(2), time: timeStr, pace: paceStr, date: runDate };
   localStorage.setItem('recentRun', JSON.stringify(runInfo));
   
-  // UI Update if on run page
-  const captureBtn = document.getElementById('capture-insta-btn');
-  const captureDate = document.getElementById('capture-date');
-  if (captureBtn) captureBtn.classList.remove('hidden');
-  if (captureDate) captureDate.innerText = runDate;
-
   if (SHEET_API_URL) {
     const phone = localStorage.getItem('userPhone') || 'unknown';
     try {
@@ -58,81 +55,41 @@ async function dbRecordRun(distance, timeStr, paceStr) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: [{ phone: phone, distance: distance.toFixed(2), time: timeStr, pace: paceStr, date: runDate }] })
       });
-      // After saving, sync total distance from server
       await dbSyncTotalDistance();
-    } catch (e) {
-      console.error("달리기 DB 저장 실패", e);
-    }
+    } catch (e) { console.error("달리기 DB 저장 실패", e); }
   }
 }
 
 async function dbSyncTotalDistance() {
   const phone = localStorage.getItem('userPhone');
   if (!phone || !SHEET_API_URL) return;
-
   try {
     const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Runs`);
     const data = await res.json();
     if (data && Array.isArray(data)) {
-      // 1. Total Distance Sync Local
-      let totalDist = 0;
-      let totalSeconds = 0;
-      
+      let totalDist = 0; let totalSeconds = 0;
       data.forEach(run => {
-        const d = parseFloat(run.distance || 0);
-        totalDist += d;
-        
-        // Parse "MM:SS" or "M:SS"
-        const timeParts = (run.time || "00:00").split(':');
-        if (timeParts.length === 2) {
-          totalSeconds += (parseInt(timeParts[0]) * 60) + parseInt(timeParts[1]);
-        }
+        totalDist += parseFloat(run.distance || 0);
+        const parts = (run.time || "00:00").split(':');
+        if (parts.length === 2) totalSeconds += (parseInt(parts[0])*60) + parseInt(parts[1]);
       });
-      
       localStorage.setItem('totalDistance', totalDist.toFixed(2));
-      
-      // Calculate Average Pace (Total Seconds / Total Distance)
       if (totalDist > 0) {
-        const avgTotalPaceSec = totalSeconds / totalDist;
-        const m = Math.floor(avgTotalPaceSec / 60);
-        const s = Math.floor(avgTotalPaceSec % 60);
-        localStorage.setItem('averagePace', `${m}'${s.toString().padStart(2, '0')}"`);
-      } else {
-        localStorage.setItem('averagePace', "0'00\"");
+        const avg = totalSeconds / totalDist;
+        localStorage.setItem('averagePace', `${Math.floor(avg/60)}'${Math.floor(avg%60).toString().padStart(2,'0')}"`);
       }
-      
-      // 1-2. Sync to Users sheet for Ranking
-      if (SHEET_API_URL) {
-        fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: { totalDistance: totalDist.toFixed(2) } })
-        }).catch(err => console.error("Users 거리 동기화 실패", err));
-      }
-      
-      // 2. Recent Run Sync
       if (data.length > 0) {
-        const lastRun = data[data.length - 1];
-        localStorage.setItem('recentRun', JSON.stringify({
-          distance: lastRun.distance,
-          time: lastRun.time,
-          pace: lastRun.pace,
-          date: lastRun.date
-        }));
+        const last = data[data.length - 1];
+        localStorage.setItem('recentRun', JSON.stringify({ distance: last.distance, time: last.time, pace: last.pace, date: last.date }));
       }
-      
       updateDisplayNumbers(true);
     }
-  } catch (e) {
-    console.error("거리 동기화 실패", e);
-  }
+  } catch (e) { console.error("동기화 실패", e); }
 }
 
 async function dbCheckAttendance() {
-  let count = parseInt(localStorage.getItem('attendanceCount') || '0');
-  count += 1;
+  let count = parseInt(localStorage.getItem('attendanceCount') || '0') + 1;
   localStorage.setItem('attendanceCount', count.toString());
-
   if (SHEET_API_URL) {
     const phone = localStorage.getItem('userPhone') || 'unknown';
     try {
@@ -141,135 +98,153 @@ async function dbCheckAttendance() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: { attendanceCount: count } })
       });
-    } catch (e) {
-      console.error("출석 DB 업데이트 실패", e);
-    }
+    } catch (e) { console.error(e); }
   }
 }
 
 // ==========================================
-// 2. Signup & Login Logic
+// 3. UI Logic & Sync
 // ==========================================
-const phoneInput = document.getElementById('phone-input');
-const loginBtn = document.getElementById('login-btn');
-const signupBtn = document.getElementById('signup-btn');
+async function uploadProfileImage(file) {
+  if (!file || !GAS_API_URL) return;
 
-if (phoneInput && loginBtn) {
-  phoneInput.addEventListener('input', (e) => {
-    if (e.target.value.length >= 10) {
-      loginBtn.style.opacity = '1';
-      loginBtn.style.pointerEvents = 'auto';
-    } else {
-      loginBtn.style.opacity = '0.5';
-      loginBtn.style.pointerEvents = 'none';
-    }
-  });
+  const overlay = document.getElementById('image-loading-overlay');
+  if (overlay) overlay.classList.remove('hidden');
 
-  loginBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    const phoneVal = phoneInput.value;
-    const errorEl = document.getElementById('login-error');
-    
-    loginBtn.innerText = "정보 확인 중...";
-    try {
-      const res = await fetch(`${SHEET_API_URL}/search?phone=${phoneVal}&sheet=Users`);
-      const data = await res.json();
+  try {
+    const reader = new FileReader();
+    const result = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const response = await fetch(GAS_API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        image: result,
+        fileName: `profile_${currentUser.phone}_${Date.now()}`,
+        contentType: file.type
+      })
+    });
+
+    const data = await response.json();
+    if (data.result === "success") {
+      const imageUrl = data.url;
       
-      if (data && data.length > 0) {
-        const user = data[0];
-        localStorage.setItem('userPhone', user.phone);
-        localStorage.setItem('userName', user.name);
-        localStorage.setItem('attendanceCount', user.attendanceCount || '0');
-        localStorage.setItem('isLoggedIn', 'true');
-        
-        // Initial distance sync on login
-        await dbSyncTotalDistance();
-        
-        navigateTo('dashboard.html');
-      } else {
-        if(errorEl) errorEl.innerText = "가입되지 않은 번호입니다. 가입을 먼저 진행해주세요.";
-        loginBtn.innerText = "로그인 / 시작하기";
+      // 로컬 저장
+      localStorage.setItem('userProfileImage', imageUrl);
+      currentUser.profileImage = imageUrl;
+
+      // 시트 업데이트 (SheetDB)
+      if (SHEET_API_URL) {
+        await fetch(`${SHEET_API_URL}/phone/${currentUser.phone}?sheet=Users`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: { profileImage: imageUrl } })
+        });
       }
-    } catch (err) {
-      if(errorEl) errorEl.innerText = "서버 통신 에러가 발생했습니다.";
-      loginBtn.innerText = "로그인 / 시작하기";
-    }
-  });
-}
 
-const signupPhone = document.getElementById('signup-phone');
-const signupName = document.getElementById('signup-name');
-if (signupBtn && signupPhone && signupName) {
-  const checkSignupForm = () => {
-    if (signupPhone.value.length >= 10 && signupName.value.length > 0) {
-      signupBtn.style.opacity = '1';
-      signupBtn.style.pointerEvents = 'auto';
+      updateDisplayNumbers(true);
     } else {
-      signupBtn.style.opacity = '0.5';
-      signupBtn.style.pointerEvents = 'none';
+      alert("업로드 실패: " + data.error);
     }
-  };
-  signupPhone.addEventListener('input', checkSignupForm);
-  signupName.addEventListener('input', checkSignupForm);
-
-  signupBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    signupBtn.innerText = "가입 처리 중...";
-    await dbSaveUser(signupPhone.value, signupName.value);
-    alert('반갑습니다! 회원가입이 완료되었습니다.');
-    navigateTo('dashboard.html');
-  });
+  } catch (e) {
+    console.error("업로드 오류", e);
+    alert("이미지 업로드 중 오류가 발생했습니다.");
+  } finally {
+    if (overlay) overlay.classList.add('hidden');
+  }
 }
 
-// ==========================================
-// 3. Dashboard, Profile & Share
-// ==========================================
 let isSyncing = false;
 async function updateDisplayNumbers(skipSync = false) {
   if (!skipSync && !isSyncing) {
     isSyncing = true;
     await dbSyncTotalDistance();
+    
+    // 유저 정보 가져오기 (프로필 이미지 포함)
+    const phone = localStorage.getItem('userPhone');
+    if (phone && SHEET_API_URL) {
+      try {
+        const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Users`);
+        const userData = await res.json();
+        if (userData && userData.length > 0) {
+          const img = userData[0].profileImage || '';
+          localStorage.setItem('userProfileImage', img);
+          localStorage.setItem('userName', userData[0].name);
+        }
+      } catch (e) {}
+    }
     isSyncing = false;
   }
 
-  const count = parseInt(localStorage.getItem('attendanceCount') || '0');
-  const dist = parseFloat(localStorage.getItem('totalDistance') || '0').toFixed(1);
-  const name = localStorage.getItem('userName') || '러너';
-  const phone = localStorage.getItem('userPhone') || '010';
+  currentUser.phone = localStorage.getItem('userPhone') || '010';
+  currentUser.name = localStorage.getItem('userName') || '러너';
+  currentUser.profileImage = localStorage.getItem('userProfileImage') || '';
+  currentUser.count = parseInt(localStorage.getItem('attendanceCount') || '0');
+  currentUser.dist = parseFloat(localStorage.getItem('totalDistance') || '0').toFixed(1);
+  currentUser.avgPace = localStorage.getItem('averagePace') || "0'00\"";
 
-  // UI Elements
+  // 프로필 이미지 표시
+  const profDisplay = document.getElementById('profile-img-display');
+  const profDefault = document.getElementById('profile-default-icon');
+  if (profDisplay && profDefault) {
+    if (currentUser.profileImage) {
+      profDisplay.src = currentUser.profileImage;
+      profDisplay.style.display = 'block';
+      profDefault.style.display = 'none';
+    } else {
+      profDisplay.src = '';
+      profDisplay.style.display = 'none';
+      profDefault.style.display = 'block';
+    }
+  }
+
   const dashboardName = document.getElementById('dashboard-name');
-  const progressValue = document.getElementById('progress-value');
-  const profileName = document.getElementById('profile-name');
-  const profilePhone = document.getElementById('profile-phone');
-  const profileDist = document.getElementById('profile-dist');
-  const profileCount = document.getElementById('profile-count');
-  const attCountDisplay = document.getElementById('attendance-count-display');
-  const attProgressBar = document.getElementById('attendance-progress-bar');
+  if (dashboardName) dashboardName.innerText = `반가워요, ${currentUser.name}님! 👋`;
+  
+  const progVal = document.getElementById('progress-value');
+  if (progVal) progVal.innerText = currentUser.count.toString();
 
-  if (dashboardName) dashboardName.innerText = `반가워요, ${name}님! 👋`;
-  if (progressValue) progressValue.innerText = count.toString();
-  if (profileName) profileName.innerText = name;
-  if (profilePhone) profilePhone.innerText = phone;
-  if (profileDist) profileDist.innerText = dist;
-  if (profileCount) profileCount.innerText = count.toString();
-  if (attCountDisplay) attCountDisplay.innerText = count.toString();
-  if (attProgressBar) attProgressBar.style.width = `${Math.min((count / 25) * 100, 100)}%`;
+  const profName = document.getElementById('profile-name');
+  if (profName) profName.innerText = currentUser.name;
+  
+  const profPhone = document.getElementById('profile-phone');
+  if (profPhone) profPhone.innerText = currentUser.phone;
+
+  const profDist = document.getElementById('profile-dist');
+  if (profDist) profDist.innerText = currentUser.dist;
+
+  const profCount = document.getElementById('profile-count');
+  if (profCount) profCount.innerText = currentUser.count.toString();
+
+  const attCount = document.getElementById('attendance-count-display');
+  if (attCount) attCount.innerText = currentUser.count.toString();
+
+  const attBar = document.getElementById('attendance-progress-bar');
+  if (attBar) attBar.style.width = `${Math.min((currentUser.count / 25) * 100, 100)}%`;
+
+  const statsCount = document.getElementById('stats-total-count');
+  const statsDist = document.getElementById('stats-total-dist');
+  const statsPace = document.getElementById('stats-avg-pace');
+  if (statsCount) statsCount.innerText = currentUser.count.toString();
+  if (statsDist) statsDist.innerText = currentUser.dist;
+  if (statsPace) statsPace.innerText = currentUser.avgPace;
 
   // Reward statuses
-  const rewards = [
-    { id: 'reward-10', target: 10 },
-    { id: 'reward-20', target: 20 },
-    { id: 'reward-25', target: 25 }
-  ];
+  const rewards = [{ id: 'reward-10', target: 10 }, { id: 'reward-20', target: 20 }, { id: 'reward-25', target: 25 }];
   rewards.forEach(r => {
     const el = document.getElementById(r.id);
     if (el) {
-      if (count >= r.target) {
-        const status = el.querySelector('.reward-status');
-        if (status) {
+      const status = el.querySelector('.reward-status');
+      if (status) {
+        if (currentUser.count >= r.target) {
           status.innerText = "획득 완료!";
           status.style.color = "var(--primary)";
+        } else {
+          status.innerText = "진행 중";
+          status.style.color = "var(--text-muted)";
         }
       }
     }
@@ -278,302 +253,257 @@ async function updateDisplayNumbers(skipSync = false) {
   // Recent Run Card
   const recentRunCard = document.getElementById('recent-run-card');
   const recentRunStr = localStorage.getItem('recentRun');
-  if (recentRunCard && recentRunStr) {
-    const run = JSON.parse(recentRunStr);
-    recentRunCard.innerHTML = `
-      <div>
-        <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">${run.date.split(',')[0]}</div>
-        <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">최근 러닝 완료 🏃‍♂️</div>
-        <div style="font-size: 13px; color: var(--text-muted);">${run.distance}km • ${run.time} • ${run.pace}/km</div>
-      </div>
-      <div style="width: 40px; height: 40px; border-radius: 50%; background-color: var(--primary); display: flex; justify-content: center; align-items: center; color: #000;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-      </div>
-    `;
-  } else if (recentRunCard) {
-    recentRunCard.innerHTML = `
-      <div>
-        <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">러닝을 시작해보아요! 🏃‍♂️</div>
-        <div style="font-size: 13px; color: var(--text-muted);">러닝 탭에서 첫 발걸음을 떼보세요.</div>
-      </div>
-      <div style="width: 40px; height: 40px; border-radius: 50%; background-color: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center;">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
-      </div>
-    `;
+  if (recentRunCard) {
+    if (recentRunStr) {
+      const run = JSON.parse(recentRunStr);
+      recentRunCard.innerHTML = `
+        <div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">${run.date.split(',')[0]}</div>
+          <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">최근 러닝 완료 🏃‍♂️</div>
+          <div style="font-size: 13px; color: var(--text-muted);">${run.distance}km • ${run.time} • ${run.pace}/km</div>
+        </div>
+        <div style="width: 40px; height: 40px; border-radius: 50%; background-color: var(--primary); display: flex; justify-content: center; align-items: center; color: #000;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </div>
+      `;
+    } else {
+      recentRunCard.innerHTML = `
+        <div>
+          <div style="font-size: 18px; font-weight: 700; margin-bottom: 2px;">러닝을 시작해보아요! 🏃‍♂️</div>
+          <div style="font-size: 13px; color: var(--text-muted);">러닝 탭에서 첫 발걸음을 떼보세요.</div>
+        </div>
+        <div style="width: 40px; height: 40px; border-radius: 50%; background-color: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </div>
+      `;
+    }
   }
 
-  // --- STATS SLIDE RENDERING ---
-  const statsCount = document.getElementById('stats-total-count');
-  const statsDist = document.getElementById('stats-total-dist');
-  const statsPace = document.getElementById('stats-avg-pace');
-  if (statsCount) statsCount.innerText = count.toString();
-  if (statsDist) statsDist.innerText = dist;
-  if (statsPace) statsPace.innerText = localStorage.getItem('averagePace') || "0'00\"";
-
-  // --- Ranking Logic ---
   fetchAndRenderRanking();
 
-  // --- Slider Dots Logic (Corrected) ---
+  // Slider Dots
   const slider = document.getElementById('dashboard-slider');
   const dots = document.querySelectorAll('.dot');
   if (slider && dots.length > 0) {
-    // Sync dots immediately on render
-    const initialIndex = Math.round(slider.scrollLeft / slider.offsetWidth) || 0;
-    dots.forEach((dot, i) => dot.classList.toggle('active', i === initialIndex));
-
-    // Listen for scroll to update dots
-    slider.onscroll = () => {
-      const scrollPos = slider.scrollLeft;
-      const width = slider.offsetWidth;
-      if (width === 0) return;
-      const index = Math.round(scrollPos / width);
-      dots.forEach((dot, i) => {
-        dot.classList.toggle('active', i === index);
-      });
+    const sync = () => {
+      const idx = Math.round(slider.scrollLeft / slider.offsetWidth);
+      dots.forEach((dot, i) => dot.classList.toggle('active', i === idx));
     };
+    sync();
+    slider.onscroll = sync;
   }
 }
 
 async function fetchAndRenderRanking() {
   const rankingList = document.getElementById('ranking-list');
   if (!rankingList || !SHEET_API_URL) return;
-
   try {
     const res = await fetch(`${SHEET_API_URL}?sheet=Users`);
     const users = await res.json();
-    
     if (users && Array.isArray(users)) {
-      // Sort by totalDistance descending
-      const rankedUsers = users
-        .filter(u => u.totalDistance)
-        .sort((a, b) => parseFloat(b.totalDistance) - parseFloat(a.totalDistance))
-        .slice(0, 5); // Top 5
-
-      if (rankedUsers.length > 0) {
-        rankingList.innerHTML = rankedUsers.map((user, i) => `
+      const ranked = users.filter(u => u.totalDistance).sort((a,b) => parseFloat(b.totalDistance) - parseFloat(a.totalDistance)).slice(0, 5);
+      if (ranked.length > 0) {
+        rankingList.innerHTML = ranked.map((u, i) => `
           <div class="ranking-item rank-${i+1}">
-            <div style="display: flex; align-items: center;">
-              <div class="rank-badge">${i+1}</div>
-              <div style="font-size: 15px; font-weight: 600;">${user.name}</div>
-            </div>
-            <div style="font-size: 14px; font-weight: 700; color: var(--primary);">${user.totalDistance} <span style="font-size: 11px; color: var(--text-muted);">km</span></div>
+            <div style="display: flex; align-items: center;"><div class="rank-badge">${i+1}</div><div style="font-size: 15px; font-weight: 600;">${u.name}</div></div>
+            <div style="font-size: 14px; font-weight: 700; color: var(--primary);">${u.totalDistance} <span style="font-size: 11px; color: var(--text-muted);">km</span></div>
           </div>
         `).join('');
-      } else {
-        rankingList.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px;">아직 기록된 랭킹이 없습니다.</div>';
       }
     }
-  } catch (e) {
-    console.error("랭킹 호출 실패", e);
-    rankingList.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px; font-size: 13px;">데이터를 불러올 수 없습니다.</div>';
-  }
-}
-
-  // "Show More" Modal Logic
-  const showMoreBtn = document.getElementById('show-all-runs');
-  const modal = document.getElementById('full-runs-modal');
-  const closeBtn = document.getElementById('close-runs-btn');
-  const listCont = document.getElementById('full-runs-list');
-
-  if (showMoreBtn && modal) {
-    showMoreBtn.onclick = async () => {
-      modal.classList.remove('hidden');
-      listCont.innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">데이터 로딩 중...</div>';
-      try {
-        const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Runs`);
-        const runs = await res.json();
-        listCont.innerHTML = '';
-        if (runs && runs.length > 0) {
-          runs.reverse().forEach(run => {
-            const card = document.createElement('div');
-            card.className = 'glass-panel';
-            card.style.padding = '16px';
-            card.innerHTML = `
-              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">${run.date.split(',')[0]}</div>
-              <div style="font-size: 16px; font-weight: 700; margin-bottom: 2px;">러닝 기록</div>
-              <div style="font-size: 13px; color: var(--text-muted);">${run.distance}km • ${run.time} • ${run.pace}/km</div>
-            `;
-            listCont.appendChild(card);
-          });
-        } else {
-          listCont.innerHTML = '<div style="text-align: center; color: var(--text-muted); margin-top: 40px;">아직 러닝 기록이 없어요.<br>지금 바로 첫 러닝을 시작해볼까요?</div>';
-        }
-      } catch (e) {
-        listCont.innerHTML = '<div style="text-align: center; color: var(--error); margin-top: 40px;">기록을 가져오지 못했습니다.</div>';
-      }
-    };
-    if (closeBtn) closeBtn.onclick = () => modal.classList.add('hidden');
-  }
-
-  // Edit Name Logic
-  const editNameBtn = document.getElementById('edit-name-btn');
-  const editNameModal = document.getElementById('edit-name-modal');
-  const cancelEditBtn = document.getElementById('cancel-edit-btn');
-  const saveNameBtn = document.getElementById('save-name-btn');
-  const newNameInput = document.getElementById('new-name-input');
-
-  if (editNameBtn && editNameModal) {
-    editNameBtn.onclick = async () => {
-      // Fetch latest name from SheetDB before editing to ensure sync
-      const phone = localStorage.getItem('userPhone');
-      if (phone && SHEET_API_URL) {
-        try {
-          const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Users`);
-          const data = await res.json();
-          if (data && data.length > 0) {
-            localStorage.setItem('userName', data[0].name);
-          }
-        } catch (e) {
-          console.warn("최신 데이터 동기화 실패", e);
-        }
-      }
-      
-      newNameInput.value = localStorage.getItem('userName') || '';
-      editNameModal.classList.remove('hidden');
-    };
-    
-    cancelEditBtn.onclick = () => editNameModal.classList.add('hidden');
-    
-    saveNameBtn.onclick = async () => {
-      const newName = newNameInput.value.trim();
-      if (!newName) return alert("이름을 입력해주세요.");
-      
-      saveNameBtn.innerText = "저장 중...";
-      saveNameBtn.disabled = true;
-      
-      const phone = localStorage.getItem('userPhone');
-      
-      try {
-        if (SHEET_API_URL && phone) {
-          const patchRes = await fetch(`${SHEET_API_URL}/phone/${phone}?sheet=Users`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: { name: newName } })
-          });
-          
-          if (!patchRes.ok) throw new Error("Update failed");
-        }
-        
-        localStorage.setItem('userName', newName);
-        alert("이름이 수정되었습니다!");
-        editNameModal.classList.add('hidden');
-        updateDisplayNumbers(); // UI 업데이트
-      } catch (e) {
-        console.error(e);
-        alert("이름 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
-      } finally {
-        saveNameBtn.innerText = "저장";
-        saveNameBtn.disabled = false;
-      }
-    };
-  }
-}
-
-// Share Logic (Insta Share)
-const instaBtn = document.getElementById('capture-insta-btn');
-if (instaBtn) {
-  instaBtn.addEventListener('click', async () => {
-    const area = document.getElementById('capture-area');
-    if (!area || typeof html2canvas === 'undefined') return;
-
-    try {
-      const canvas = await html2canvas(area, {
-        backgroundColor: null,
-        scale: 2,
-        useCORS: true
-      });
-      
-      canvas.toBlob(async (blob) => {
-        if (!blob) return alert("이미지 생성에 실패했습니다.");
-        
-        try {
-          // Try to copy to clipboard
-          const data = [new ClipboardItem({ 'image/png': blob })];
-          await navigator.clipboard.write(data);
-          alert("러닝 기록이 클립보드에 복사되었습니다! 인스타그램 스토리에 바로 '붙여넣기' 해보세요. ✨");
-        } catch (err) {
-          // Fallback to Download if clipboard fails
-          console.warn("Clipboard failed, falling back to download", err);
-          const dataUrl = canvas.toDataURL('image/png');
-          const link = document.createElement('a');
-          link.download = `full_running_${Date.now()}.png`;
-          link.href = dataUrl;
-          link.click();
-          alert("이미지가 저장되었습니다! 갤러리에서 확인 후 공유해 보세요.");
-        }
-      }, 'image/png');
-
-    } catch (e) {
-      console.error(e);
-      alert("이미지 처리 중 오류가 발생했습니다.");
-    }
-  });
+  } catch (e) { console.error(e); }
 }
 
 // ==========================================
-// 4. Attendance (QR Camera)
+// 4. Auth, Interaction & Share
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Login
+  const phoneIn = document.getElementById('phone-input');
+  const loginBtn = document.getElementById('login-btn');
+  if (phoneIn && loginBtn) {
+    phoneIn.oninput = (e) => {
+      loginBtn.style.opacity = e.target.value.length >= 10 ? '1' : '0.5';
+      loginBtn.style.pointerEvents = e.target.value.length >= 10 ? 'auto' : 'none';
+    };
+    loginBtn.onclick = async () => {
+      loginBtn.innerText = "확인 중...";
+      try {
+        const res = await fetch(`${SHEET_API_URL}/search?phone=${phoneIn.value}&sheet=Users`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+          localStorage.setItem('userPhone', data[0].phone);
+          localStorage.setItem('userName', data[0].name);
+          localStorage.setItem('isLoggedIn', 'true');
+          navigateTo('dashboard.html');
+        } else {
+          alert("가입되지 않은 번호입니다.");
+          loginBtn.innerText = "로그인 / 시작하기";
+        }
+      } catch (e) { alert("서버 오류"); loginBtn.innerText = "로그인 / 시작하기"; }
+    };
+  }
+
+  // Signup
+  const sBtn = document.getElementById('signup-btn');
+  const sPhone = document.getElementById('signup-phone');
+  const sName = document.getElementById('signup-name');
+  if (sBtn && sPhone && sName) {
+    const check = () => {
+      sBtn.style.opacity = (sPhone.value.length >= 10 && sName.value.length > 0) ? '1' : '0.5';
+      sBtn.style.pointerEvents = (sPhone.value.length >= 10 && sName.value.length > 0) ? 'auto' : 'none';
+    };
+    sPhone.oninput = check; sName.oninput = check;
+    sBtn.onclick = async () => {
+      sBtn.innerText = "가입 중...";
+      await dbSaveUser(sPhone.value, sName.value);
+      navigateTo('dashboard.html');
+    };
+  }
+
+  // Edit Nickname
+  const editBtn = document.getElementById('edit-name-btn');
+  const editModal = document.getElementById('edit-name-modal');
+  const saveBtn = document.getElementById('save-name-btn');
+  const nameIn = document.getElementById('new-name-input');
+  if (editBtn && editModal) {
+    editBtn.onclick = () => { nameIn.value = currentUser.name; editModal.classList.remove('hidden'); };
+    const cEdit = document.getElementById('cancel-edit-btn');
+    if (cEdit) cEdit.onclick = () => editModal.classList.add('hidden');
+    if (saveBtn) {
+      saveBtn.onclick = async () => {
+        if (!nameIn.value.trim()) return;
+        saveBtn.disabled = true; saveBtn.innerText = "저장 중...";
+        try {
+          await fetch(`${SHEET_API_URL}/phone/${currentUser.phone}?sheet=Users`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: { name: nameIn.value.trim() } })
+          });
+          localStorage.setItem('userName', nameIn.value.trim());
+          currentUser.name = nameIn.value.trim();
+          editModal.classList.add('hidden');
+          updateDisplayNumbers();
+        } catch (e) { alert("오류"); }
+        saveBtn.disabled = false; saveBtn.innerText = "저장";
+      };
+    }
+  }
+
+  // Profile Image Upload Interaction
+  const profContainer = document.getElementById('profile-image-container');
+  const profInput = document.getElementById('profile-upload-input');
+  if (profContainer && profInput) {
+    profContainer.onclick = () => profInput.click();
+    profInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (file.size > 5 * 1024 * 1024) { // 5MB 제한
+          alert("파일 크기가 너무 큽니다 (최대 5MB)");
+          return;
+        }
+        uploadProfileImage(file);
+      }
+    };
+  }
+
+  // Show More Runs
+  const mBtn = document.getElementById('show-all-runs');
+  const mModal = document.getElementById('full-runs-modal');
+  const mList = document.getElementById('full-runs-list');
+  const cRuns = document.getElementById('close-runs-btn');
+  if (mBtn && mModal) {
+    mBtn.onclick = async () => {
+      mModal.classList.remove('hidden');
+      mList.innerHTML = '<div style="text-align:center;margin-top:40px;">로딩 중...</div>';
+      try {
+        const res = await fetch(`${SHEET_API_URL}/search?phone=${currentUser.phone}&sheet=Runs`);
+        const data = await res.json();
+        mList.innerHTML = data.reverse().map(r => `
+          <div class="glass-panel" style="padding:16px;margin-bottom:10px;">
+            <div style="font-size:12px;color:var(--text-muted);">${r.date.split(',')[0]}</div>
+            <div style="font-size:16px;font-weight:700;">러닝 기록</div>
+            <div style="font-size:13px;color:var(--text-muted);">${r.distance}km • ${r.time} • ${r.pace}/km</div>
+          </div>
+        `).join('') || '<div style="text-align:center;margin-top:40px;">기록이 없습니다.</div>';
+      } catch(e) { mList.innerHTML = "오류"; }
+    };
+    if (cRuns) cRuns.onclick = () => mModal.classList.add('hidden');
+  }
+
+  // Share
+  const iBtn = document.getElementById('capture-insta-btn');
+  if (iBtn) {
+    iBtn.onclick = async () => {
+      const area = document.getElementById('capture-area');
+      if (!area || typeof html2canvas === 'undefined') return;
+      try {
+        const canvas = await html2canvas(area, { backgroundColor: null, scale: 2, useCORS: true });
+        canvas.toBlob(async (blob) => {
+          try {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+            alert("복사되었습니다! ✨");
+          } catch (e) {
+            const link = document.createElement('a'); link.download = `run_${Date.now()}.png`; link.href = canvas.toDataURL(); link.click();
+          }
+        });
+      } catch (e) {}
+    };
+  }
+});
+
+// ==========================================
+// 5. Attendance (QR Camera)
 // ==========================================
 const video = document.getElementById('qr-video');
 if (video && typeof jsQR !== 'undefined') {
   let scanning = false;
-  const canvasElement = document.getElementById('qr-canvas');
-  const canvas = canvasElement.getContext('2d');
+  const canvasEl = document.getElementById('qr-canvas');
+  const ctx = canvasEl.getContext('2d');
 
   function tick() {
     if (!scanning) return;
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvasElement.height = video.videoHeight;
-      canvasElement.width = video.videoWidth;
-      canvas.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
-      const imageData = canvas.getImageData(0, 0, canvasElement.width, canvasElement.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+      canvasEl.height = video.videoHeight; canvasEl.width = video.videoWidth;
+      ctx.drawImage(video, 0, 0, canvasEl.width, canvasEl.height);
+      const imgData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height);
+      const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "dontInvert" });
       if (code) {
         scanning = false;
         if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
-        handleScanSuccess(code.data);
+        handleSuccess(code.data);
         return;
       }
     }
     requestAnimationFrame(tick);
   }
 
-  async function handleScanSuccess(text) {
+  async function handleSuccess(text) {
     let master = localStorage.getItem('CREW_MASTER_QR');
-    if (!master) {
-      localStorage.setItem('CREW_MASTER_QR', text);
-      alert("공식 출석 QR로 등록되었습니다!");
-    } else if (text !== master) {
-      alert("지정된 QR코드가 아닙니다.");
-      navigateTo('attendance.html'); // Retry
-      return;
-    }
+    if (!master) { localStorage.setItem('CREW_MASTER_QR', text); alert("공식 QR로 등록!"); }
+    else if (text !== master) { alert("잘못된 QR"); navigateTo('attendance.html'); return; }
 
     const today = new Date().toDateString();
-    if (localStorage.getItem('lastScanDate') === today) {
-      alert("오늘은 이미 출석하셨습니다.");
-      navigateTo('dashboard.html');
-      return;
-    }
+    if (localStorage.getItem('lastScanDate') === today) { alert("오늘은 이미 출석하셨습니다."); navigateTo('dashboard.html'); return; }
 
     localStorage.setItem('lastScanDate', today);
-    document.getElementById('scan-container').classList.add('hidden');
-    document.getElementById('scan-success-msg').classList.remove('hidden');
+    const sCont = document.getElementById('scan-container');
+    const sSucc = document.getElementById('scan-success-msg');
+    if (sCont) sCont.classList.add('hidden');
+    if (sSucc) sSucc.classList.remove('hidden');
     await dbCheckAttendance();
     updateDisplayNumbers();
   }
 
   navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => {
-    scanning = true;
-    video.srcObject = s;
-    video.play();
-    requestAnimationFrame(tick);
+    scanning = true; video.srcObject = s; video.play(); requestAnimationFrame(tick);
   });
 }
 
 // ==========================================
-// 5. Run Tracker (Leaflet & GPS)
+// 6. Run Tracker (Leaflet & GPS)
 // ==========================================
-function calculateDistance(lat1, lon1, lat2, lon2) {
+function calcDist(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
@@ -595,180 +525,97 @@ if (startRunBtn && document.getElementById('map')) {
     const pos = [p.coords.latitude, p.coords.longitude];
     map.setView(pos, 16);
     marker = L.circleMarker(pos, { radius: 8, fillColor: "#FF793E", color: "#fff", weight: 2, fillOpacity: 1 }).addTo(map);
-    document.getElementById('map-overlay').style.display = 'none';
+    const mOverlay = document.getElementById('map-overlay');
+    if (mOverlay) mOverlay.style.display = 'none';
   });
 
   startRunBtn.onclick = async () => {
-    const totalSecondsSoFar = Math.floor(elapsedMsBeforePause / 1000);
-    if (!isRunning && totalSecondsSoFar === 0) {
-      const confirmStart = confirm("⚠️ 러닝 시작 전 주의사항\n\n1. 앱 새로고침을 하면 현재 기록이 사라질 수 있습니다.\n2. GPS 기반 측정으로 실제 거리와 약간의 오차가 발생할 수 있습니다.\n\n러닝을 시작하시겠습니까?");
-      if (!confirmStart) return;
+    if (!isRunning && elapsedMsBeforePause === 0) {
+      if (!confirm("⚠️ 러닝 시작 주의사항\n\n1. 새로고침 시 기록이 사라질 수 있습니다.\n2. GPS 실제 거리와 오차가 있을 수 있습니다.\n\n시작하시겠습니까?")) return;
     }
-
     isRunning = !isRunning;
     if (isRunning) {
-      // Start or Resume
       startTime = Date.now();
-      
-      // Wake Lock (Keep screen on)
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLock = await navigator.wakeLock.request('screen');
-        } catch (err) {}
-      }
-
-      const metricsCont = document.getElementById('metrics-container');
-      if (metricsCont) metricsCont.classList.remove('hidden');
+      if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+      const metCont = document.getElementById('metrics-container');
+      if (metCont) metCont.classList.remove('hidden');
       if (stopRunBtn) stopRunBtn.classList.add('hidden');
-
       startRunBtn.innerText = '일시정지';
-      startRunBtn.style.backgroundColor = 'rgba(255,255,255,0.1)';
-      startRunBtn.style.color = '#fff';
+      startRunBtn.style.backgroundColor = 'rgba(255,255,255,0.1)'; startRunBtn.style.color = '#fff';
 
       watchId = navigator.geolocation.watchPosition(p => {
         const pos = [p.coords.latitude, p.coords.longitude];
         if (marker) marker.setLatLng(pos);
-        path.addLatLng(pos);
-        map.panTo(pos);
-        if (lastPos) dist += calculateDistance(lastPos[0], lastPos[1], pos[0], pos[1]);
-        document.getElementById('distance-display').innerText = dist.toFixed(2);
+        path.addLatLng(pos); map.panTo(pos);
+        if (lastPos) dist += calcDist(lastPos[0], lastPos[1], pos[0], pos[1]);
+        const dDisp = document.getElementById('distance-display');
+        if (dDisp) dDisp.innerText = dist.toFixed(2);
         lastPos = pos;
       }, null, { enableHighAccuracy: true });
 
       timer = setInterval(() => {
-        const now = Date.now();
-        const totalMs = elapsedMsBeforePause + (now - startTime);
-        const totalSeconds = Math.floor(totalMs / 1000);
-        const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-        const s = (totalSeconds % 60).toString().padStart(2, '0');
-        document.getElementById('time-display').innerText = `${m}:${s}`;
-        
-        if (dist > 0.01) {
-          const paceMin = Math.floor((totalSeconds / 60) / dist);
-          const paceSec = Math.floor((((totalSeconds / 60) / dist) - paceMin) * 60);
-          document.getElementById('pace-display').innerText = `${paceMin}'${paceSec.toString().padStart(2, '0')}"`;
+        const totalMs = elapsedMsBeforePause + (Date.now() - startTime);
+        const totalSec = Math.floor(totalMs / 1000);
+        const tDisp = document.getElementById('time-display');
+        const pDisp = document.getElementById('pace-display');
+        if (tDisp) tDisp.innerText = `${Math.floor(totalSec / 60).toString().padStart(2, '0')}:${(totalSec % 60).toString().padStart(2, '0')}`;
+        if (dist > 0.01 && pDisp) {
+          const p = (totalSec / 60) / dist;
+          pDisp.innerText = `${Math.floor(p)}'${Math.floor((p-Math.floor(p))*60).toString().padStart(2, '0')}"`;
         }
       }, 1000);
+      document.getElementById('lock-screen-btn')?.classList.remove('hidden');
     } else {
-      // Pause
       elapsedMsBeforePause += (Date.now() - startTime);
-      clearInterval(timer);
-      navigator.geolocation.clearWatch(watchId);
-      
-      // Release Wake Lock
-      if (wakeLock) {
-        wakeLock.release().then(() => { wakeLock = null; });
-      }
-
+      clearInterval(timer); navigator.geolocation.clearWatch(watchId);
+      if (wakeLock) { wakeLock.release().then(() => wakeLock = null); }
       startRunBtn.innerText = '재개하기';
-      startRunBtn.style.backgroundColor = 'var(--primary)';
-      startRunBtn.style.color = '#000';
+      startRunBtn.style.backgroundColor = 'var(--primary)'; startRunBtn.style.color = '#000';
       if (stopRunBtn) stopRunBtn.classList.remove('hidden');
     }
   };
 
-  // Visibility change handling for better sync
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && isRunning) {
-      // Force UI update when returning to tab
-      const now = Date.now();
-      const totalMs = elapsedMsBeforePause + (now - startTime);
-      const totalSeconds = Math.floor(totalMs / 1000);
-      const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
-      const s = (totalSeconds % 60).toString().padStart(2, '0');
-      const displayElem = document.getElementById('time-display');
-      if (displayElem) displayElem.innerText = `${m}:${s}`;
-    }
-  });
-
   if (stopRunBtn) {
     stopRunBtn.onclick = async () => {
-      isRunning = false;
-      clearInterval(timer);
-      navigator.geolocation.clearWatch(watchId);
-      
-      await dbRecordRun(dist, document.getElementById('time-display').innerText, document.getElementById('pace-display').innerText);
-      
-      alert('러닝이 완료되었습니다!');
-      
-      startRunBtn.innerText = '러닝 시작';
-      startRunBtn.style.backgroundColor = 'var(--primary)';
-      startRunBtn.style.color = '#000';
+      isRunning = false; clearInterval(timer); navigator.geolocation.clearWatch(watchId);
+      const tDisp = document.getElementById('time-display');
+      const pDisp = document.getElementById('pace-display');
+      const dDisp = document.getElementById('distance-display');
+      await dbRecordRun(dist, tDisp?.innerText || '00:00', pDisp?.innerText || "0'00\"");
+      alert('완료!');
+      startRunBtn.innerText = '러닝 시작'; startRunBtn.style.backgroundColor = 'var(--primary)';
       stopRunBtn.classList.add('hidden');
-      
-      // Reset values for next run
       dist = 0; startTime = 0; elapsedMsBeforePause = 0; lastPos = null;
-      document.getElementById('distance-display').innerText = '0.00';
-      document.getElementById('time-display').innerText = '00:00';
-      document.getElementById('pace-display').innerText = "0'00\"";
-      
-      // Reset protection UI
-      const lockBtn = document.getElementById('lock-screen-btn');
-      if (lockBtn) lockBtn.classList.add('hidden');
+      if (dDisp) dDisp.innerText = '0.00';
+      if (tDisp) tDisp.innerText = '00:00';
+      if (pDisp) pDisp.innerText = "0'00\"";
+      document.getElementById('lock-screen-btn')?.classList.add('hidden');
     };
   }
 
-  // --- 1. Protection Logic: Navigation Guard ---
-  const navLinks = document.querySelectorAll('.nav-link');
-  navLinks.forEach(link => {
+  // Nav Guard & Touch Lock Setup
+  const nLinks = document.querySelectorAll('.nav-link');
+  nLinks.forEach(link => {
     link.addEventListener('click', (e) => {
-      if (isRunning) {
-        e.preventDefault();
-        alert("러닝 중에는 탭을 이동할 수 없습니다.\n먼저 러닝을 일시정지하거나 종료해 주세요.");
-      }
+      if (isRunning) { e.preventDefault(); alert("러닝 중에는 이동할 수 없습니다. 일시정지 후 이동해주세요."); }
     });
   });
 
-  // --- 2. Protection Logic: Touch Lock ---
-  const lockBtn = document.getElementById('lock-screen-btn');
-  const lockOverlay = document.getElementById('touch-lock-overlay');
-  const unlockHoldBtn = document.getElementById('unlock-hold-btn');
-  const unlockProgress = document.getElementById('unlock-progress');
-
-  if (lockBtn && lockOverlay && unlockHoldBtn) {
-    // Show lock button only when running starts
-    const originalStartRun = startRunBtn.onclick;
-    startRunBtn.onclick = async (...args) => {
-      await originalStartRun.apply(this, args);
-      if (isRunning) {
-        lockBtn.classList.remove('hidden');
-      } else {
-        // Shown even when paused to prevent accidents, but user might want it hidden
-        // For now, keep it visible if elapsed time > 0
-        const totalSec = Math.floor(elapsedMsBeforePause / 1000);
-        if (totalSec === 0) lockBtn.classList.add('hidden');
-      }
-    };
-
-    lockBtn.onclick = () => {
-      lockOverlay.classList.remove('hidden');
-      // Force status bar or other UI to hide if possible (web restricted)
-    };
-
-    let holdTimer = null;
-    let holdStartTime = 0;
-    const HOLD_DURATION = 1500; // 1.5 seconds for better UX
-
+  const lBtn = document.getElementById('lock-screen-btn');
+  const lOverlay = document.getElementById('touch-lock-overlay');
+  const uHoldBtn = document.getElementById('unlock-hold-btn');
+  const uProg = document.getElementById('unlock-progress');
+  if (lBtn && lOverlay && uHoldBtn) {
+    lBtn.onclick = () => lOverlay.classList.remove('hidden');
+    let hTimer = null;
     const startHold = (e) => {
       e.preventDefault();
-      holdStartTime = Date.now();
-      unlockProgress.style.height = '100%';
-      unlockProgress.style.transition = `height ${HOLD_DURATION}ms linear`;
-      
-      holdTimer = setTimeout(() => {
-        lockOverlay.classList.add('hidden');
-        resetHold();
-      }, HOLD_DURATION);
+      uProg.style.height = '100%'; uProg.style.transition = 'height 1500ms linear';
+      hTimer = setTimeout(() => { lOverlay.classList.add('hidden'); resetHold(); }, 1500);
     };
-
-    const resetHold = () => {
-      clearTimeout(holdTimer);
-      unlockProgress.style.transition = 'none';
-      unlockProgress.style.height = '0%';
-    };
-
-    unlockHoldBtn.addEventListener('mousedown', startHold);
-    unlockHoldBtn.addEventListener('touchstart', startHold);
+    const resetHold = () => { clearTimeout(hTimer); uProg.style.transition = 'none'; uProg.style.height = '0%'; };
+    uHoldBtn.addEventListener('mousedown', startHold);
+    uHoldBtn.addEventListener('touchstart', startHold);
     window.addEventListener('mouseup', resetHold);
     window.addEventListener('touchend', resetHold);
   }
