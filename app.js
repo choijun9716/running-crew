@@ -392,8 +392,8 @@ function renderRankingItems(users) {
     .filter(u => u.name && u.phone) // 유효한 유저만
     .map(u => ({
       ...u,
-      distNum: parseFloat(u.totalDistance || 0),
-      attNum: parseInt(u.attendanceCount || 0)
+      distNum: parseFloat(String(u.totalDistance || '0').replace(/[^0-9.]/g, '')) || 0,
+      attNum: parseInt(u.attendanceCount || 0) || 0
     }))
     .sort((a, b) => b.distNum - a.distNum)
     .slice(0, 5);
