@@ -26,6 +26,11 @@ let currentUser = {
   avgPace: localStorage.getItem('averagePace') || "0'00\""
 };
 
+// 페이지 체크 (API 호출 차단용)
+const isAuthPage = window.location.pathname.includes('index.html') || 
+                   window.location.pathname.includes('signup.html') ||
+                   window.location.pathname.endsWith('/'); 
+
 // ==========================================
 // 2. DB Controller
 // ==========================================
@@ -171,24 +176,56 @@ async function uploadProfileImage(file) {
 
 let isSyncing = false;
 async function updateDisplayNumbers(skipSync = false) {
+  // 인증 페이지에서는 API 실행 안 함
+  if (isAuthPage) return;
+
   if (!skipSync && !isSyncing) {
     isSyncing = true;
-    await dbSyncTotalDistance();
     
-    // 유저 정보 동기화 (마지막 동기화 시간이 오래되었을 때만)
     const phone = localStorage.getItem('userPhone');
-    const lastUserSync = localStorage.getItem('lastUserSyncTime');
-    if (phone && SHEET_API_URL && (!lastUserSync || (Date.now() - parseInt(lastUserSync) > SYNC_INTERVAL * 2))) {
-      try {
-        const res = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Users`);
-        const userData = await res.json();
-        if (userData && userData.length > 0) {
-          localStorage.setItem('userProfileImage', userData[0].profileImage || '');
-          localStorage.setItem('userName', userData[0].name);
-          localStorage.setItem('lastUserSyncTime', Date.now().toString());
+    if (phone && SHEET_API_URL) {
+      const now = Date.now();
+      const lastSync = localStorage.getItem('lastSyncFullTime');
+      
+      // 10분마다 만 전체 동기화 실행
+      if (!lastSync || (now - parseInt(lastSync) > SYNC_INTERVAL)) {
+        console.log("전체 동기화 실행 중...");
+        try {
+          // 1. 달리기 기록 동기화
+          const resRuns = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Runs`);
+          const dataRuns = await resRuns.json();
+          if (dataRuns && Array.isArray(dataRuns)) {
+            let totalDist = 0; let totalSeconds = 0;
+            dataRuns.forEach(run => {
+              totalDist += parseFloat(run.distance || 0);
+              const parts = (run.time || "00:00").split(':');
+              if (parts.length === 2) totalSeconds += (parseInt(parts[0])*60) + parseInt(parts[1]);
+            });
+            localStorage.setItem('totalDistance', totalDist.toFixed(2));
+            if (totalDist > 0) {
+              const avg = totalSeconds / totalDist;
+              localStorage.setItem('averagePace', `${Math.floor(avg/60)}'${Math.floor(avg%60).toString().padStart(2,'0')}"`);
+            }
+          }
+
+          // 2. 유저 정보 동기화
+          const resUser = await fetch(`${SHEET_API_URL}/search?phone=${phone}&sheet=Users`);
+          const dataUser = await resUser.json();
+          if (dataUser && dataUser.length > 0) {
+            localStorage.setItem('userProfileImage', dataUser[0].profileImage || '');
+            localStorage.setItem('userName', dataUser[0].name);
+            localStorage.setItem('attendanceCount', dataUser[0].attendanceCount || '0');
+          }
+
+          localStorage.setItem('lastSyncFullTime', now.toString());
+        } catch (e) {
+          console.error("동기화 실패", e);
         }
-      } catch (e) {}
+      }
     }
+    
+    // 랭킹 조회는 동기화 블록 안에서 한 번만 호출
+    fetchAndRenderRanking();
     isSyncing = false;
   }
 
@@ -309,25 +346,26 @@ async function updateDisplayNumbers(skipSync = false) {
 
 async function fetchAndRenderRanking() {
   const rankingList = document.getElementById('ranking-list');
-  if (!rankingList || !SHEET_API_URL) return;
+  if (!rankingList || !SHEET_API_URL || isAuthPage) return;
 
-  // 1. 캐시 확인
-  const cached = sessionStorage.getItem(RANKING_CACHE_KEY);
+  // 1. 캐시 확인 (localStorage 로 변경하여 탭 이동 시 더 확실하게 방어)
+  const cached = localStorage.getItem(RANKING_CACHE_KEY);
   if (cached) {
     const { timestamp, data } = JSON.parse(cached);
     if (Date.now() - timestamp < RANKING_CACHE_TIME) {
-      console.log("랭킹 데이터 캐시 사용");
+      console.log("랭킹 데이터 캐시 사용 (API 호출 생략)");
       renderRankingItems(data);
       return;
     }
   }
 
   try {
+    console.log("랭킹 차트 데이터 불러오는 중...");
     const res = await fetch(`${SHEET_API_URL}?sheet=Users`);
     const users = await res.json();
     if (users && Array.isArray(users)) {
       // 2. 캐시 저장
-      sessionStorage.setItem(RANKING_CACHE_KEY, JSON.stringify({
+      localStorage.setItem(RANKING_CACHE_KEY, JSON.stringify({
         timestamp: Date.now(),
         data: users
       }));
