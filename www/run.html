@@ -5,97 +5,105 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
   <title>러닝 트래커 - 풀러닝</title>
   <link rel="stylesheet" href="styles.css">
-  <!-- Leaflet Map CSS & JS -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Mapbox GL JS CSS & JS -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
   <!-- HTML2Canvas -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
   <div class="app-container">
-    <main class="content-area animate-fade-in" style="padding: 20px; position: relative;">
+    <main class="content-area animate-fade-in run-screen" style="padding: 0; position: relative; width: 100%; height: 100%; overflow: hidden;">
       
-      <!-- Top Actions -->
-      <div id="lock-screen-btn" class="hidden" style="position: absolute; top: 15px; left: 15px; z-index: 100; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.08); border-radius: 50%; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px);" data-html2canvas-ignore>
-        <svg width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-        </svg>
+      <!-- Full Screen Map -->
+      <div id="map" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;"></div>
+      
+      <div id="map-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; pointer-events: none;">
+        <span style="color: #fff; font-size: 14px; font-weight: 600;">GPS 호출 중...</span>
       </div>
 
-      <div id="capture-insta-btn" class="hidden" style="position: absolute; top: 15px; right: 15px; z-index: 100; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.08); border-radius: 50%; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px);" data-html2canvas-ignore>
-        <svg width="24" height="24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-          <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-        </svg>
+      <!-- Start Overlay (Before Run) -->
+      <div id="start-overlay" style="position: absolute; bottom: 100px; left: 0; width: 100%; display: flex; justify-content: center; z-index: 10;">
+        <button id="start-run-btn" class="btn-primary" style="width: 200px; height: 60px; border-radius: 30px; font-size: 18px; font-weight: 700; box-shadow: 0 4px 20px rgba(255, 121, 62, 0.4);">
+          러닝 시작
+        </button>
       </div>
 
-      <!-- Capture Area: This part will be saved as PNG -->
-      <div id="capture-area" style="padding: 20px; border-radius: 24px; background: transparent;">
-        <header style="margin-bottom: 20px; text-align: center;">
-          <h1 class="title" style="font-size: 24px; letter-spacing: 2px;">FULL RUNNING</h1>
-          <p class="subtitle" id="capture-date" style="font-size: 13px; color: var(--text-muted);">오늘의 러닝 기록</p>
-        </header>
-
-        <div id="metrics-container" class="hidden" style="display: flex; flex-direction: column; align-items: center;">
-          <!-- Main Metric -->
-          <div style="margin-bottom: 40px; text-align: center;">
-            <div id="distance-display" style="font-size: 64px; font-weight: 800; color: var(--primary); line-height: 1; font-family: monospace; letter-spacing: -0.05em;">
-              0.00
-            </div>
-            <div style="font-size: 16px; color: var(--text-muted); font-weight: 600;">KILOMETERS</div>
-          </div>
-
-          <!-- Sub Metrics -->
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; width: 100%; margin-bottom: 30px;">
-            <div style="text-align: center;">
-              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">TIME</div>
-              <div id="time-display" style="font-size: 24px; font-weight: 700; font-family: monospace;">00:00</div>
-            </div>
-            <div style="text-align: center;">
-              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">PACE</div>
-              <div id="pace-display" style="font-size: 24px; font-weight: 700; font-family: monospace;">0'00"</div>
-            </div>
-          </div>
-        </div>
-
-        <div style="display: flex; flex-direction: column; align-items: center;">
-          <!-- Real Map Container (Smaller) -->
-          <div class="glass-panel" id="map-capture-block" style="width: 100%; height: 200px; overflow: hidden; position: relative; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
-            <div id="map" style="width: 100%; height: 100%;"></div>
-            <div id="map-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; pointer-events: none;">
-              <span style="color: #fff; font-size: 14px; font-weight: 600;">GPS 호출 중...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top: 20px; width: 100%;" data-html2canvas-ignore>
-        <div style="display: flex; gap: 12px;">
-          <button id="start-run-btn" class="btn-primary" style="flex: 1; height: 60px; border-radius: 30px; font-size: 18px; font-weight: 700;">
-            러닝 시작
-          </button>
+      <!-- Capture Area (Includes Map and Bottom Sheet visually) -->
+      <div id="capture-area" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+        <!-- The map is underneath this, so html2canvas might grab it if preserveDrawingBuffer is true -->
+        
+        <!-- Bottom Sheet (During Run) -->
+        <div class="bottom-sheet run-info-sheet hidden" id="run-info-sheet" style="position: absolute; bottom: 0; left: 0; width: 100%; background: #1c1c1e; border-radius: 36px 36px 0 0; padding: 32px 24px 40px 24px; z-index: 10; pointer-events: auto; box-shadow: 0 -10px 30px rgba(0,0,0,0.3);">
           
-          <button id="stop-run-btn" class="hidden" style="flex: 1; height: 60px; border-radius: 30px; background: var(--error); color: #fff; font-weight: 700; font-size: 16px; border: none; cursor: pointer;">
-            러닝 끝내기
-          </button>
+          <!-- Distance -->
+          <div style="text-align: center; margin-bottom: 30px;">
+            <div style="font-size: 13px; color: #8d95a2; margin-bottom: 4px;">거리</div>
+            <div style="display: flex; justify-content: center; align-items: baseline; gap: 6px;">
+              <span id="distance-display" style="font-size: 52px; font-weight: 800; line-height: 1; letter-spacing: -1px; color: #fff;">0.00</span>
+              <span style="font-size: 24px; font-weight: 700; color: #fff;">km</span>
+            </div>
+          </div>
+
+          <!-- Grid info -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 40px; text-align: center;">
+            <div>
+              <div style="font-size: 12px; color: #8d95a2; margin-bottom: 8px;">페이스</div>
+              <div id="pace-display" style="font-size: 22px; font-weight: 700; font-family: monospace; color: #fff;">-'- -"</div>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #8d95a2; margin-bottom: 8px;">시간</div>
+              <div id="time-display" style="font-size: 22px; font-weight: 700; font-family: monospace; color: #fff;">00:00</div>
+            </div>
+            <div>
+              <div style="font-size: 12px; color: #8d95a2; margin-bottom: 8px;">케이던스</div>
+              <div id="cadence-display" style="font-size: 22px; font-weight: 700; font-family: monospace; color: #fff;">- - -</div>
+            </div>
+          </div>
+
+          <!-- Tooltip Container -->
+          <div style="position: relative; width: 100%; display: flex; justify-content: center;">
+            <div id="stop-tooltip" class="stop-tooltip hidden" style="position: absolute; bottom: 90px; background: #ffff66; color: #000; padding: 12px 16px; border-radius: 12px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 20;">
+              <span>끝내기를 원하면 길게 눌러주세요</span>
+              <button id="close-tooltip-btn" style="color: #000; display: flex; align-items: center; opacity: 0.6; cursor: pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+              <!-- Arrow pointing down -->
+              <div style="position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #ffff66;"></div>
+            </div>
+          </div>
+
+          <!-- Actions Row -->
+          <div style="display: flex; gap: 16px; align-items: center;">
+            <!-- Lock Button -->
+            <button id="lock-screen-btn" style="flex-shrink: 0; width: 64px; height: 64px; border-radius: 20px; background: rgba(255,255,255,0.5); border: none; color: #fff; display: flex; justify-content: center; align-items: center; cursor: pointer;">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </button>
+            
+            <!-- Stop/Continue Button (Hold to Stop) -->
+            <button id="stop-run-btn" style="flex-grow: 1; height: 64px; border-radius: 32px; border: 1.5px solid #ffff66; color: #ffff66; font-size: 16px; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; position: relative; overflow: hidden; background: #1c1c1e; cursor: pointer;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="#ffff66"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <span id="stop-run-text" style="color: #ffff66;">이어뛰기</span>
+              <div id="stop-progress" style="position: absolute; bottom: 0; left: 0; width: 0%; height: 100%; background: rgba(255, 255, 102, 0.2); transition: width 0.1s linear; z-index: 1;"></div>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Touch Lock Overlay -->
-      <div id="touch-lock-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
+      <div id="touch-lock-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
         <div style="text-align: center; color: #fff;">
           <div style="margin-bottom: 24px;">
-            <svg width="48" height="48" fill="none" stroke="var(--primary)" stroke-width="2" style="opacity: 0.8;">
+            <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.8;">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
           </div>
           <p style="font-size: 16px; font-weight: 600; margin-bottom: 30px;">화면이 잠겨있습니다</p>
-          
-          <button id="unlock-hold-btn" style="width: 180px; height: 180px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; font-weight: 700; position: relative; overflow: hidden; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent;">
+          <button id="unlock-hold-btn" style="width: 150px; height: 150px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: #fff; font-weight: 700; position: relative; overflow: hidden; cursor: pointer; outline: none; -webkit-tap-highlight-color: transparent;">
             <span style="position: relative; z-index: 2;">길게 눌러서<br>잠금 해제</span>
-            <div id="unlock-progress" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: var(--primary); opacity: 0.4; transition: height 0.1s linear; z-index: 1;"></div>
+            <div id="unlock-progress" style="position: absolute; bottom: 0; left: 0; width: 100%; height: 0%; background: rgba(255,255,255,0.3); transition: height 0.1s linear; z-index: 1;"></div>
           </button>
         </div>
       </div>

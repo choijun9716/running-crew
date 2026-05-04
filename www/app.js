@@ -679,100 +679,261 @@ const stopRunBtn = document.getElementById('stop-run-btn');
 if (startRunBtn && document.getElementById('map')) {
   let isRunning = false, dist = 0, lastPos = null, watchId = null, timer = null;
   let startTime = 0, elapsedMsBeforePause = 0, wakeLock = null;
-  const map = L.map('map').setView([37.5665, 126.9780], 15);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png').addTo(map);
-  const path = L.polyline([], {color: '#FF793E', weight: 5}).addTo(map);
-  let marker = null;
+  let runCoordinates = []; // Mapbox 경로 기록용 배열
+
+  mapboxgl.accessToken = 'pk.eyJ1IjoiY2hvaWp1bjk3MTYiLCJhIjoiY21vcmE0d3EyMDJqODJ3cTB3NzJrOW9rcyJ9.NlvJrrDmfBMEe5HWQzk9Rg';
+  const map = new mapboxgl.Map({
+    container: 'map',
+    style: 'mapbox://styles/mapbox/dark-v11', // 다크 테마
+    center: [126.9780, 37.5665], // [경도, 위도]
+    zoom: 15,
+    attributionControl: false // 하단 로고 숨김 (선택 사항)
+  });
+
+  // 커스텀 마커 엘리먼트 생성 (노란색 원 + 검은색 중앙 도트)
+  const markerEl = document.createElement('div');
+  markerEl.style.width = '24px';
+  markerEl.style.height = '24px';
+  markerEl.style.backgroundColor = '#ffff66';
+  markerEl.style.border = '3px solid #fff';
+  markerEl.style.borderRadius = '50%';
+  markerEl.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+  markerEl.style.display = 'flex';
+  markerEl.style.justifyContent = 'center';
+  markerEl.style.alignItems = 'center';
+  
+  const innerDot = document.createElement('div');
+  innerDot.style.width = '8px';
+  innerDot.style.height = '8px';
+  innerDot.style.backgroundColor = '#000';
+  innerDot.style.borderRadius = '50%';
+  markerEl.appendChild(innerDot);
+
+  let marker = new mapboxgl.Marker({ element: markerEl }).setLngLat([126.9780, 37.5665]).addTo(map);
+
+  map.on('load', () => {
+    map.addSource('route', {
+      'type': 'geojson',
+      'data': {
+        'type': 'Feature',
+        'properties': {},
+        'geometry': {
+          'type': 'LineString',
+          'coordinates': runCoordinates
+        }
+      }
+    });
+
+    map.addLayer({
+      'id': 'route',
+      'type': 'line',
+      'source': 'route',
+      'layout': {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      'paint': {
+        'line-color': '#FF793E',
+        'line-width': 5
+      }
+    });
+  });
 
   navigator.geolocation.getCurrentPosition(p => {
-    const pos = [p.coords.latitude, p.coords.longitude];
-    map.setView(pos, 16);
-    marker = L.circleMarker(pos, { radius: 8, fillColor: "#FF793E", color: "#fff", weight: 2, fillOpacity: 1 }).addTo(map);
+    const lngLat = [p.coords.longitude, p.coords.latitude];
+    map.setCenter(lngLat);
+    map.setZoom(16);
+    marker.setLngLat(lngLat);
     const mOverlay = document.getElementById('map-overlay');
     if (mOverlay) mOverlay.style.display = 'none';
   });
+
+  // UI Elements
+  const startOverlay = document.getElementById('start-overlay');
+  const runInfoSheet = document.getElementById('run-info-sheet');
+  const bottomNav = document.querySelector('.bottom-nav');
+  const stopTooltip = document.getElementById('stop-tooltip');
+  const closeTooltipBtn = document.getElementById('close-tooltip-btn');
+  
+  if (closeTooltipBtn) {
+    closeTooltipBtn.onclick = () => stopTooltip.classList.add('hidden');
+  }
 
   startRunBtn.onclick = async () => {
     if (!isRunning && elapsedMsBeforePause === 0) {
       if (!confirm("⚠️ 러닝 시작 주의사항\n\n1. 새로고침 시 기록이 사라질 수 있습니다.\n2. GPS 실제 거리와 오차가 있을 수 있습니다.\n\n시작하시겠습니까?")) return;
     }
-    isRunning = !isRunning;
-    if (isRunning) {
-      startTime = Date.now();
-      if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
-      const metCont = document.getElementById('metrics-container');
-      if (metCont) metCont.classList.remove('hidden');
-      if (stopRunBtn) stopRunBtn.classList.add('hidden');
-      startRunBtn.innerText = '일시정지';
-      startRunBtn.style.backgroundColor = 'rgba(255,255,255,0.1)'; startRunBtn.style.color = '#fff';
+    isRunning = true;
+    startTime = Date.now();
+    if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
+    
+    // UI Updates
+    if (startOverlay) startOverlay.classList.add('hidden');
+    if (runInfoSheet) runInfoSheet.classList.remove('hidden');
+    if (bottomNav) bottomNav.classList.add('hidden'); // Hide bottom nav during run
+    if (stopTooltip) stopTooltip.classList.remove('hidden'); // Show tooltip initially
+    setTimeout(() => { if (stopTooltip) stopTooltip.classList.add('hidden'); }, 5000); // Hide tooltip after 5s
 
-      watchId = navigator.geolocation.watchPosition(p => {
-        // 1. 오차 반경 30m 이상인 부정확한 GPS 신호 무시
-        if (p.coords.accuracy > 30 && lastPos !== null) return;
+    watchId = navigator.geolocation.watchPosition(p => {
+      // 1. 오차 반경 30m 이상인 부정확한 GPS 신호 무시
+      if (p.coords.accuracy > 30 && lastPos !== null) return;
 
-        const pos = [p.coords.latitude, p.coords.longitude];
-        if (marker) marker.setLatLng(pos);
-        
-        if (lastPos) {
-          const d = calcDist(lastPos[0], lastPos[1], pos[0], pos[1]);
-          // 2. 노이즈 필터링: 최소 3m(0.003km) 이상 이동 시에만 반영, 튀는 값(100m 이상) 무시
-          if (d > 0.003 && d < 0.1) {
-            dist += d;
-            path.addLatLng(pos); 
-            map.panTo(pos);
-            const dDisp = document.getElementById('distance-display');
-            if (dDisp) dDisp.innerText = dist.toFixed(2);
-            lastPos = pos; // 유효한 이동일 때만 기준점 업데이트
+      const lngLat = [p.coords.longitude, p.coords.latitude]; // Mapbox uses [lng, lat]
+      marker.setLngLat(lngLat);
+      
+      if (lastPos) {
+        const d = calcDist(lastPos[0], lastPos[1], p.coords.latitude, p.coords.longitude);
+        // 2. 노이즈 필터링: 최소 3m(0.003km) 이상 이동 시에만 반영, 튀는 값(100m 이상) 무시
+        if (d > 0.003 && d < 0.1) {
+          if (isRunning) dist += d; // Paused 일 때는 거리는 누적하지 않음 (단순 지도이동만)
+          runCoordinates.push(lngLat);
+          if (map.getSource('route')) {
+            map.getSource('route').setData({
+              'type': 'Feature',
+              'properties': {},
+              'geometry': { 'type': 'LineString', 'coordinates': runCoordinates }
+            });
           }
-        } else {
-          path.addLatLng(pos); 
-          map.panTo(pos);
-          lastPos = pos;
+          map.panTo(lngLat);
+          const dDisp = document.getElementById('distance-display');
+          if (dDisp) dDisp.innerText = dist.toFixed(2);
+          lastPos = [p.coords.latitude, p.coords.longitude];
         }
-      }, (err) => console.warn("GPS Warning:", err), { 
-        enableHighAccuracy: true, 
-        maximumAge: 2000, 
-        timeout: 10000 
-      });
+      } else {
+        runCoordinates.push(lngLat);
+        if (map.getSource('route')) {
+          map.getSource('route').setData({
+            'type': 'Feature',
+            'properties': {},
+            'geometry': { 'type': 'LineString', 'coordinates': runCoordinates }
+          });
+        }
+        map.panTo(lngLat);
+        lastPos = [p.coords.latitude, p.coords.longitude];
+      }
+    }, (err) => console.warn("GPS Warning:", err), { 
+      enableHighAccuracy: true, 
+      maximumAge: 2000, 
+      timeout: 10000 
+    });
 
-      timer = setInterval(() => {
-        const totalMs = elapsedMsBeforePause + (Date.now() - startTime);
-        const totalSec = Math.floor(totalMs / 1000);
-        const tDisp = document.getElementById('time-display');
-        const pDisp = document.getElementById('pace-display');
-        if (tDisp) tDisp.innerText = `${Math.floor(totalSec / 60).toString().padStart(2, '0')}:${(totalSec % 60).toString().padStart(2, '0')}`;
-        if (dist > 0.01 && pDisp) {
-          const p = (totalSec / 60) / dist;
-          pDisp.innerText = `${Math.floor(p)}'${Math.floor((p-Math.floor(p))*60).toString().padStart(2, '0')}"`;
-        }
-      }, 1000);
-      document.getElementById('lock-screen-btn')?.classList.remove('hidden');
-    } else {
-      elapsedMsBeforePause += (Date.now() - startTime);
-      clearInterval(timer); navigator.geolocation.clearWatch(watchId);
-      if (wakeLock) { wakeLock.release().then(() => wakeLock = null); }
-      startRunBtn.innerText = '재개하기';
-      startRunBtn.style.backgroundColor = 'var(--primary)'; startRunBtn.style.color = '#000';
-      if (stopRunBtn) stopRunBtn.classList.remove('hidden');
+    timer = setInterval(() => {
+      if (!isRunning) return; // Paused 상태면 타이머 업데이트 안 함
+      const totalMs = elapsedMsBeforePause + (Date.now() - startTime);
+      const totalSec = Math.floor(totalMs / 1000);
+      const tDisp = document.getElementById('time-display');
+      const pDisp = document.getElementById('pace-display');
+      if (tDisp) tDisp.innerText = `${Math.floor(totalSec / 60).toString().padStart(2, '0')}:${(totalSec % 60).toString().padStart(2, '0')}`;
+      if (dist > 0.01 && pDisp) {
+        const p = (totalSec / 60) / dist;
+        pDisp.innerText = `${Math.floor(p)}'${Math.floor((p-Math.floor(p))*60).toString().padStart(2, '0')}"`;
+      }
+    }, 1000);
+    
+    document.getElementById('lock-screen-btn')?.classList.remove('hidden');
+    
+    const stopRunText = document.getElementById('stop-run-text');
+    if (stopRunText) stopRunText.innerText = '일시정지';
+    if (stopRunBtn) {
+      stopRunBtn.style.borderColor = '#ff4a4a';
+      stopRunBtn.style.color = '#ff4a4a';
+      const svg = stopRunBtn.querySelector('svg');
+      if (svg) {
+        svg.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+        svg.setAttribute('fill', '#ff4a4a');
+      }
+      stopRunText.style.color = '#ff4a4a';
     }
   };
 
   if (stopRunBtn) {
-    stopRunBtn.onclick = async () => {
-      isRunning = false; clearInterval(timer); navigator.geolocation.clearWatch(watchId);
-      const tDisp = document.getElementById('time-display');
-      const pDisp = document.getElementById('pace-display');
-      const dDisp = document.getElementById('distance-display');
-      await dbRecordRun(dist, tDisp?.innerText || '00:00', pDisp?.innerText || "0'00\"");
-      alert('완료!');
-      startRunBtn.innerText = '러닝 시작'; startRunBtn.style.backgroundColor = 'var(--primary)';
-      stopRunBtn.classList.add('hidden');
-      dist = 0; startTime = 0; elapsedMsBeforePause = 0; lastPos = null;
-      if (dDisp) dDisp.innerText = '0.00';
-      if (tDisp) tDisp.innerText = '00:00';
-      if (pDisp) pDisp.innerText = "0'00\"";
-      document.getElementById('lock-screen-btn')?.classList.add('hidden');
+    let stopHoldTimer = null;
+    const stopProgress = document.getElementById('stop-progress');
+    const stopRunText = document.getElementById('stop-run-text');
+    
+    // Click to Pause/Resume
+    stopRunBtn.onclick = (e) => {
+      // Prevent click if we just finished holding
+      if (e.detail === 0) return; 
+      
+      isRunning = !isRunning;
+      if (isRunning) {
+        // Resume
+        startTime = Date.now();
+        if (stopRunText) stopRunText.innerText = '일시정지';
+        stopRunBtn.style.borderColor = '#ff4a4a';
+        stopRunBtn.style.color = '#ff4a4a';
+        stopRunText.style.color = '#ff4a4a';
+        const svg = stopRunBtn.querySelector('svg');
+        if (svg) {
+          svg.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+          svg.setAttribute('fill', '#ff4a4a');
+        }
+      } else {
+        // Pause
+        elapsedMsBeforePause += (Date.now() - startTime);
+        if (stopRunText) stopRunText.innerText = '이어뛰기';
+        stopRunBtn.style.borderColor = '#ffff66';
+        stopRunBtn.style.color = '#ffff66';
+        stopRunText.style.color = '#ffff66';
+        const svg = stopRunBtn.querySelector('svg');
+        if (svg) {
+          svg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+          svg.setAttribute('fill', '#ffff66');
+        }
+      }
     };
+
+    // Hold to Finish
+    const startStopHold = (e) => {
+      stopProgress.style.width = '100%'; 
+      stopProgress.style.transition = 'width 1500ms linear';
+      stopHoldTimer = setTimeout(async () => { 
+        resetStopHold();
+        await finishRun();
+      }, 1500);
+    };
+    
+    const resetStopHold = () => { 
+      clearTimeout(stopHoldTimer); 
+      stopProgress.style.transition = 'none'; 
+      stopProgress.style.width = '0%'; 
+    };
+
+    stopRunBtn.addEventListener('mousedown', startStopHold);
+    stopRunBtn.addEventListener('touchstart', startStopHold);
+    window.addEventListener('mouseup', resetStopHold);
+    window.addEventListener('touchend', resetStopHold);
+  }
+
+  async function finishRun() {
+    isRunning = false; clearInterval(timer); navigator.geolocation.clearWatch(watchId);
+    if (wakeLock) { wakeLock.release().then(() => wakeLock = null); }
+    
+    const tDisp = document.getElementById('time-display');
+    const pDisp = document.getElementById('pace-display');
+    const dDisp = document.getElementById('distance-display');
+    await dbRecordRun(dist, tDisp?.innerText || '00:00', pDisp?.innerText || "0'00\"");
+    alert('러닝 기록이 저장되었습니다! 🏃‍♂️');
+    
+    // UI Reset
+    if (startOverlay) startOverlay.classList.remove('hidden');
+    if (runInfoSheet) runInfoSheet.classList.add('hidden');
+    if (bottomNav) bottomNav.classList.remove('hidden');
+    
+    dist = 0; startTime = 0; elapsedMsBeforePause = 0; lastPos = null;
+    runCoordinates = [];
+    if (map.getSource('route')) {
+      map.getSource('route').setData({
+        'type': 'Feature',
+        'properties': {},
+        'geometry': { 'type': 'LineString', 'coordinates': runCoordinates }
+      });
+    }
+    if (dDisp) dDisp.innerText = '0.00';
+    if (tDisp) tDisp.innerText = '00:00';
+    if (pDisp) pDisp.innerText = "-'- -\"";
+    document.getElementById('lock-screen-btn')?.classList.add('hidden');
   }
 
   // Nav Guard & Touch Lock Setup
