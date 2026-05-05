@@ -47,5 +47,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>러닝 데이터를 기록하고 분석하기 위해 건강 데이터 읽기 권한이 필요합니다.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>러닝 완료 후 운동 기록을 저장하기 위해 건강 데이터 쓰기 권한이 필요합니다.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>러닝 중 실시간 케이던스(보폭)를 측정하기 위해 동작 데이터 권한이 필요합니다.</string>
 </dict>
 </plist>

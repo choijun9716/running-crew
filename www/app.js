@@ -1,4 +1,5 @@
 // app.js
+const { Pedometer, Health } = Capacitor.Plugins;
 
 // ==========================================
 // 0. Auto Login Check (가장 먼저 실행)
@@ -41,8 +42,27 @@ const isAuthPage = window.location.pathname.includes('index.html') ||
                    window.location.pathname.endsWith('/'); 
 
 // ==========================================
-// 2. DB Controller
+// 2. DB Controller & Health Integration
 // ==========================================
+async function requestHealthPermissions() {
+  try {
+    // 1. 동작 추적 권한 (Pedometer)
+    if (Pedometer) {
+      await Pedometer.requestPermissions();
+    }
+    
+    // 2. 건강 앱 권한 (Health)
+    if (Health) {
+      await Health.requestPermissions({
+        read: ['steps', 'distance', 'active_calories', 'height', 'weight', 'heart_rate'],
+        write: ['steps', 'distance', 'active_calories']
+      });
+    }
+  } catch (e) {
+    console.error("권한 요청 실패:", e);
+  }
+}
+
 async function dbSaveUser(phone, name) {
   localStorage.setItem('userPhone', phone);
   localStorage.setItem('userName', name);
@@ -613,6 +633,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
   }
+
+  // 건강 권한 요청
+  requestHealthPermissions();
 });
 
 // ==========================================
@@ -829,6 +852,22 @@ if (startRunBtn && document.getElementById('map')) {
         pDisp.innerText = `${Math.floor(p)}'${Math.floor((p-Math.floor(p))*60).toString().padStart(2, '0')}"`;
       }
     }, 1000);
+
+    // Pedometer (Cadence) 시작
+    if (Pedometer) {
+      Pedometer.startPedometerUpdates((data) => {
+        const cDisp = document.getElementById('cadence-display');
+        if (cDisp && isRunning) {
+          if (data.cadence) {
+            // data.cadence: steps per second -> steps per minute (SPM)
+            const spm = Math.round(data.cadence * 60);
+            cDisp.innerText = spm.toString();
+          } else {
+            cDisp.innerText = "0";
+          }
+        }
+      });
+    }
     
     document.getElementById('lock-screen-btn')?.classList.remove('hidden');
     
@@ -909,6 +948,15 @@ if (startRunBtn && document.getElementById('map')) {
   async function finishRun() {
     isRunning = false; clearInterval(timer); navigator.geolocation.clearWatch(watchId);
     if (wakeLock) { wakeLock.release().then(() => wakeLock = null); }
+
+    // Pedometer 중단
+    if (Pedometer) {
+      try {
+        await Pedometer.stopPedometerUpdates();
+        const cDisp = document.getElementById('cadence-display');
+        if (cDisp) cDisp.innerText = '- - -';
+      } catch (e) { console.error("Pedometer 중지 실패", e); }
+    }
     
     const tDisp = document.getElementById('time-display');
     const pDisp = document.getElementById('pace-display');

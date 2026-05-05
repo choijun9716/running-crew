@@ -21,7 +21,9 @@
   "dependencies": {
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
-    "@capacitor/ios": "^8.3.1"
+    "@capacitor/ios": "^8.3.1",
+    "@capgo/capacitor-health": "^8.4.9",
+    "@capgo/capacitor-pedometer": "^8.0.29"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5"
