@@ -698,7 +698,8 @@ function calcDist(lat1, lon1, lat2, lon2) {
 }
 
 const startRunBtn = document.getElementById('start-run-btn');
-const stopRunBtn = document.getElementById('stop-run-btn');
+const pauseRunBtn = document.getElementById('pause-run-btn');
+const finishRunBtn = document.getElementById('finish-run-btn');
 if (startRunBtn && document.getElementById('map')) {
   let isRunning = false, dist = 0, lastPos = null, watchId = null, timer = null;
   let startTime = 0, elapsedMsBeforePause = 0, wakeLock = null;
@@ -881,78 +882,70 @@ if (startRunBtn && document.getElementById('map')) {
     
     document.getElementById('lock-screen-btn')?.classList.remove('hidden');
     
-    const stopRunText = document.getElementById('stop-run-text');
-    if (stopRunText) stopRunText.innerText = '일시정지';
-    if (stopRunBtn) {
-      stopRunBtn.style.borderColor = '#ff4a4a';
-      stopRunBtn.style.color = '#ff4a4a';
-      const svg = stopRunBtn.querySelector('svg');
-      if (svg) {
-        svg.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
-        svg.setAttribute('fill', '#ff4a4a');
-      }
-      stopRunText.style.color = '#ff4a4a';
+    document.getElementById('lock-screen-btn')?.classList.remove('hidden');
+    
+    // UI 초기 상태 설정 (일시정지 버튼)
+    if (pauseRunBtn) {
+      pauseRunBtn.innerHTML = `
+        <svg id="pause-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+        <span>일시정지</span>
+      `;
     }
   };
 
-  if (stopRunBtn) {
-    let stopHoldTimer = null;
-    const stopProgress = document.getElementById('stop-progress');
-    const stopRunText = document.getElementById('stop-run-text');
-    
-    // Click to Pause/Resume
-    stopRunBtn.onclick = (e) => {
-      // Prevent click if we just finished holding
-      if (e.detail === 0) return; 
-      
+  if (pauseRunBtn) {
+    pauseRunBtn.onclick = () => {
       isRunning = !isRunning;
       if (isRunning) {
         // Resume
         startTime = Date.now();
-        if (stopRunText) stopRunText.innerText = '일시정지';
-        stopRunBtn.style.borderColor = '#ff4a4a';
-        stopRunBtn.style.color = '#ff4a4a';
-        stopRunText.style.color = '#ff4a4a';
-        const svg = stopRunBtn.querySelector('svg');
-        if (svg) {
-          svg.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
-          svg.setAttribute('fill', '#ff4a4a');
-        }
+        pauseRunBtn.innerHTML = `
+          <svg id="pause-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+          <span>일시정지</span>
+        `;
+        pauseRunBtn.style.background = 'rgba(255, 255, 102, 0.1)';
+        pauseRunBtn.style.color = '#ffff66';
       } else {
         // Pause
         elapsedMsBeforePause += (Date.now() - startTime);
-        if (stopRunText) stopRunText.innerText = '이어뛰기';
-        stopRunBtn.style.borderColor = '#ffff66';
-        stopRunBtn.style.color = '#ffff66';
-        stopRunText.style.color = '#ffff66';
-        const svg = stopRunBtn.querySelector('svg');
-        if (svg) {
-          svg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
-          svg.setAttribute('fill', '#ffff66');
-        }
+        pauseRunBtn.innerHTML = `
+          <svg id="pause-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span>이어뛰기</span>
+        `;
+        pauseRunBtn.style.background = 'rgba(255, 255, 102, 0.2)';
+        pauseRunBtn.style.color = '#ffff66';
       }
     };
+  }
 
-    // Hold to Finish
-    const startStopHold = (e) => {
-      stopProgress.style.width = '100%'; 
-      stopProgress.style.transition = 'width 1500ms linear';
-      stopHoldTimer = setTimeout(async () => { 
-        resetStopHold();
+  if (finishRunBtn) {
+    let finishHoldTimer = null;
+    const finishProgress = document.getElementById('finish-progress');
+
+    const startFinishHold = (e) => {
+      e.preventDefault();
+      if (finishProgress) {
+        finishProgress.style.width = '100%'; 
+        finishProgress.style.transition = 'width 1500ms linear';
+      }
+      finishHoldTimer = setTimeout(async () => { 
+        resetFinishHold();
         await finishRun();
       }, 1500);
     };
     
-    const resetStopHold = () => { 
-      clearTimeout(stopHoldTimer); 
-      stopProgress.style.transition = 'none'; 
-      stopProgress.style.width = '0%'; 
+    const resetFinishHold = () => { 
+      clearTimeout(finishHoldTimer); 
+      if (finishProgress) {
+        finishProgress.style.transition = 'none'; 
+        finishProgress.style.width = '0%'; 
+      }
     };
 
-    stopRunBtn.addEventListener('mousedown', startStopHold);
-    stopRunBtn.addEventListener('touchstart', startStopHold);
-    window.addEventListener('mouseup', resetStopHold);
-    window.addEventListener('touchend', resetStopHold);
+    finishRunBtn.addEventListener('mousedown', startFinishHold);
+    finishRunBtn.addEventListener('touchstart', startFinishHold);
+    window.addEventListener('mouseup', resetFinishHold);
+    window.addEventListener('touchend', resetFinishHold);
   }
 
   async function finishRun() {
