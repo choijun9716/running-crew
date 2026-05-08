@@ -791,9 +791,6 @@ if (startRunBtn && document.getElementById('map')) {
   }
 
   startRunBtn.onclick = async () => {
-    if (!isRunning && elapsedMsBeforePause === 0) {
-      if (!confirm("⚠️ 러닝 시작 주의사항\n\n1. 새로고침 시 기록이 사라질 수 있습니다.\n2. GPS 실제 거리와 오차가 있을 수 있습니다.\n\n시작하시겠습니까?")) return;
-    }
     isRunning = true;
     startTime = Date.now();
     if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
@@ -928,11 +925,23 @@ if (startRunBtn && document.getElementById('map')) {
         finishProgress.style.width = '100%'; 
         finishProgress.style.transition = 'width 1500ms linear';
       }
-      finishHoldTimer = setTimeout(async () => { 
+      finishHoldTimer = setTimeout(() => { 
         resetFinishHold();
-        await finishRun();
+        // 종료 확인 모달 표시
+        const finishModal = document.getElementById('finish-confirm-modal');
+        if (finishModal) finishModal.classList.remove('hidden');
       }, 1500);
     };
+
+    // 모달 버튼 이벤트
+    document.getElementById('cancel-finish-btn')?.addEventListener('click', () => {
+      document.getElementById('finish-confirm-modal')?.classList.add('hidden');
+    });
+
+    document.getElementById('confirm-finish-btn')?.addEventListener('click', async () => {
+      document.getElementById('finish-confirm-modal')?.classList.add('hidden');
+      await finishRun();
+    });
     
     const resetFinishHold = () => { 
       clearTimeout(finishHoldTimer); 
