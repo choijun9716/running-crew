@@ -26,6 +26,7 @@ body {
   color: var(--text-main);
   font-family: var(--font-sans);
   line-height: 1.5;
+  font-size: 15px; /* 전체적으로 1pt 정도 축소 */
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   margin: 0;
@@ -73,7 +74,7 @@ button {
   font-weight: 700;
   padding: 16px 24px;
   border-radius: 14px;
-  font-size: 16px;
+  font-size: 15px;
   transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
   width: 100%;
   display: flex;
@@ -103,7 +104,7 @@ button {
   font-weight: 600;
   padding: 16px 24px;
   border-radius: 14px;
-  font-size: 16px;
+  font-size: 15px;
   transition: all 0.2s ease;
   width: 100%;
   display: flex;
@@ -118,7 +119,7 @@ button {
 }
 
 .title {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.03em;
   margin-bottom: 8px;
@@ -126,7 +127,7 @@ button {
 }
 
 .subtitle {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text-muted);
   margin-bottom: 32px;
 }
@@ -142,7 +143,6 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 100;
 }
 
@@ -215,7 +215,7 @@ button {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 14px;
   color: var(--text-main);
-  font-size: 18px;
+  font-size: 16px;
   letter-spacing: 1px;
   outline: none;
   transition: all 0.3s ease;
