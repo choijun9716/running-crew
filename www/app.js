@@ -1,5 +1,5 @@
 // app.js
-const { Pedometer, Health } = Capacitor.Plugins;
+const { Pedometer, Health } = (window.Capacitor && window.Capacitor.Plugins) ? window.Capacitor.Plugins : {};
 
 // ==========================================
 // 0. Auto Login Check (가장 먼저 실행)
@@ -769,7 +769,14 @@ if (startRunBtn && document.getElementById('map')) {
     marker.setLngLat(lngLat);
     const mOverlay = document.getElementById('map-overlay');
     if (mOverlay) mOverlay.style.display = 'none';
-  });
+  }, (err) => {
+    console.error("GPS 초기화 실패:", err);
+    const mOverlay = document.getElementById('map-overlay');
+    if (mOverlay) {
+      mOverlay.innerHTML = '<span style="color: #ff4a4a; font-size: 14px; font-weight: 600;">GPS를 사용할 수 없습니다. 권한을 확인해주세요.</span>';
+      setTimeout(() => { mOverlay.style.display = 'none'; }, 3000);
+    }
+  }, { enableHighAccuracy: true, timeout: 10000 });
 
   // UI Elements
   const startOverlay = document.getElementById('start-overlay');
@@ -834,7 +841,10 @@ if (startRunBtn && document.getElementById('map')) {
         map.panTo(lngLat);
         lastPos = [p.coords.latitude, p.coords.longitude];
       }
-    }, (err) => console.warn("GPS Warning:", err), { 
+    }, (err) => {
+      console.warn("GPS Warning:", err);
+      // GPS 신호 약함 알림 (UI 반영 가능)
+    }, { 
       enableHighAccuracy: true, 
       maximumAge: 2000, 
       timeout: 10000 
