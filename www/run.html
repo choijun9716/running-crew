@@ -21,6 +21,11 @@
       <!-- Full Screen Map -->
       <div id="map" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;"></div>
       
+      <!-- My Location Button -->
+      <button id="recenter-btn" style="position: absolute; top: calc(env(safe-area-inset-top) + 20px); right: 20px; width: 44px; height: 44px; border-radius: 12px; background: rgba(28, 28, 30, 0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); color: #fff; display: flex; justify-content: center; align-items: center; z-index: 50; cursor: pointer;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line></svg>
+      </button>
+      
       <div id="map-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; justify-content: center; align-items: center; pointer-events: none;">
         <span style="color: #fff; font-size: 14px; font-weight: 600;">GPS 호출 중...</span>
       </div>
@@ -152,6 +157,12 @@
           <button id="confirm-finish-btn" class="btn-primary" style="flex: 1; height: 52px; font-size: 15px; background: #ff4a4a; color: #fff;">종료하기</button>
         </div>
       </div>
+    </div>
+
+    <!-- Countdown Overlay -->
+    <div id="countdown-overlay" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 20000; background: rgba(13, 15, 18, 0.9); display: flex; flex-direction: column; justify-content: center; align-items: center;">
+      <div id="countdown-number" style="font-size: 150px; font-weight: 900; color: var(--primary); text-shadow: 0 0 30px rgba(255, 121, 62, 0.5);">3</div>
+      <p style="font-size: 18px; font-weight: 600; color: #fff; margin-top: 20px; letter-spacing: 2px;">준비하세요!</p>
     </div>
   </div>
   <script src="capacitor.js"></script>

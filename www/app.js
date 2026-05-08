@@ -763,11 +763,12 @@ if (startRunBtn && document.getElementById('map')) {
     });
   });
 
+  let currentLngLat = [126.9780, 37.5665];
   navigator.geolocation.getCurrentPosition(p => {
-    const lngLat = [p.coords.longitude, p.coords.latitude];
-    map.setCenter(lngLat);
+    currentLngLat = [p.coords.longitude, p.coords.latitude];
+    map.setCenter(currentLngLat);
     map.setZoom(16);
-    marker.setLngLat(lngLat);
+    marker.setLngLat(currentLngLat);
     const mOverlay = document.getElementById('map-overlay');
     if (mOverlay) mOverlay.style.display = 'none';
   }, (err) => {
@@ -778,6 +779,20 @@ if (startRunBtn && document.getElementById('map')) {
       setTimeout(() => { mOverlay.style.display = 'none'; }, 3000);
     }
   }, { enableHighAccuracy: true, timeout: 10000 });
+
+  // 위치 추적 시 최신 위치 저장
+  const updateCurrentPos = (p) => {
+    currentLngLat = [p.coords.longitude, p.coords.latitude];
+  };
+
+  // 위치 복귀 버튼
+  const recenterBtn = document.getElementById('recenter-btn');
+  if (recenterBtn) {
+    recenterBtn.onclick = () => {
+      map.panTo(currentLngLat);
+      map.setZoom(16);
+    };
+  }
 
   // UI Elements
   const startOverlay = document.getElementById('start-overlay');
@@ -791,6 +806,32 @@ if (startRunBtn && document.getElementById('map')) {
   }
 
   startRunBtn.onclick = async () => {
+    // 3, 2, 1 카운트다운 시작
+    const countdownOverlay = document.getElementById('countdown-overlay');
+    const countdownNumber = document.getElementById('countdown-number');
+    if (countdownOverlay && countdownNumber) {
+      countdownOverlay.classList.remove('hidden');
+      let count = 3;
+      countdownNumber.innerText = count;
+      
+      const countInterval = setInterval(() => {
+        count--;
+        if (count > 0) {
+          countdownNumber.innerText = count;
+        } else if (count === 0) {
+          countdownNumber.innerText = "GO!";
+        } else {
+          clearInterval(countInterval);
+          countdownOverlay.classList.add('hidden');
+          startActualRun(); // 실제 러닝 시작
+        }
+      }, 1000);
+    } else {
+      startActualRun();
+    }
+  };
+
+  async function startActualRun() {
     isRunning = true;
     startTime = Date.now();
     if ('wakeLock' in navigator) try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e){}
@@ -807,6 +848,7 @@ if (startRunBtn && document.getElementById('map')) {
       if (p.coords.accuracy > 30 && lastPos !== null) return;
 
       const lngLat = [p.coords.longitude, p.coords.latitude]; // Mapbox uses [lng, lat]
+      currentLngLat = lngLat; // 최신 위치 업데이트
       marker.setLngLat(lngLat);
       
       if (lastPos) {
